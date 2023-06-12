@@ -1,13 +1,25 @@
 use ratelimit::Ratelimiter;
+use reqwest;
+use rocksdb::{Options, DB};
 
-pub fn main(
+fn ratelimiter_wait(ratelimiter: &mut Ratelimiter) {
+    while let Err(sleep) = ratelimiter.try_wait() {
+        std::thread::sleep(sleep);
+    }
+}
+
+pub async fn main(
     db_path: String,
     rpc_url: String,
-    rl: Ratelimiter,
+    max_slot: usize,
+    mut ratelimiter: Ratelimiter,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    println!("{:?}", db_path);
-    println!("{:?}", rpc_url);
-    // println!("{:?}", rl);
+    let db = DB::open_default(db_path)?;
+    let rpc = reqwest::Client::new();
+
+    for slot in 0..max_slot {
+        ratelimiter_wait(&mut ratelimiter);
+    }
 
     Ok(())
 }

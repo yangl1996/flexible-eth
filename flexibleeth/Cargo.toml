@@ -14,4 +14,7 @@ env_logger = "0.10.0"
 log = "0.4.19"
 rand = "0.8.5"
 ratelimit = "0.7.0"
+reqwest = "0.11.18"
+rocksdb = "0.21.0"
 serde = { version = "1.0.164", features = ["derive"] }
+tokio = { version = "1.28.2", features = ["full"] }

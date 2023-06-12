@@ -28,8 +28,12 @@ enum Commands {
         #[arg(long, default_value = "https://lodestar-mainnet.chainsafe.io")]
         rpc_url: String,
 
+        /// Maximum slot to synchronize
+        #[arg(long)]
+        max_slot: usize,
+
         /// Rate limit for beacon chain RPC endpoint: requests (numerator)
-        #[arg(long, default_value_t = 10)]
+        #[arg(long, default_value_t = 2)]
         rl_requests: usize,
 
         /// Rate limit for beacon chain RPC endpoint: seconds (denominator)
@@ -53,7 +57,8 @@ enum Commands {
     },
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let cli = Cli::parse();
 
     env_logger::Builder::from_default_env()
@@ -79,20 +84,25 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Sync {
             db_path,
             rpc_url,
+            max_slot,
             rl_requests,
             rl_seconds,
-        } => crate::sync::main(
-            db_path,
-            rpc_url,
-            Ratelimiter::builder(rl_requests as u64, Duration::from_secs_f64(rl_seconds))
-                .max_tokens(rl_requests as u64 * 3)
-                .build()
-                .unwrap(),
-        ),
+        } => {
+            crate::sync::main(
+                db_path,
+                rpc_url,
+                max_slot,
+                Ratelimiter::builder(rl_requests as u64, Duration::from_secs_f64(rl_seconds))
+                    .max_tokens(rl_requests as u64 * 3)
+                    .build()
+                    .unwrap(),
+            )
+            .await
+        }
         Commands::ConfRule {
             db_path,
             quorum,
             max_slot,
-        } => crate::confrule::main(db_path, quorum, max_slot),
+        } => crate::confrule::main(db_path, quorum, max_slot).await,
     }
 }
