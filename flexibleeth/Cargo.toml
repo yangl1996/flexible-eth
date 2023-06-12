@@ -2,7 +2,16 @@
 name = "flexibleeth"
 version = "0.1.0"
 edition = "2021"
+authors = ["Lei Yang <leiy@csail.mit.edu>", "Joachim Neu <jneu@stanford.edu>"]
+publish = false
+description = "Proof-of-concept implementation of Ethereum flexible confirmation-rule"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+bincode = "1.3.3"
+clap = { version = "4.3.3", features = ["derive"] }
+env_logger = "0.10.0"
+log = "0.4.19"
+rand = "0.8.5"
+ratelimit = "0.7.0"
+serde = { version = "1.0.164", features = ["derive"] }
