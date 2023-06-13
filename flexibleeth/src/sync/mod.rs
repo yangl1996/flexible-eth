@@ -75,12 +75,13 @@ pub async fn main(
     let db = DB::open_default(db_path)?;
     let mut rpc = reqwest::Client::new();
 
-    for slot in 0..max_slot {
-        if db.get(format!("slot-{}-synced", slot))?.is_some() {
-            log::info!("Slot {} already synchronized", slot);
-            continue;
-        }
+    // slot number should be stored as u256 but u64 is fine
+    let begin_slot = match db.get("sync_progress")? {
+        Some(serialized) => usize::from_le_bytes(serialized.try_into().unwrap()) + 1,
+        None => 0,
+    };
 
+    for slot in begin_slot..max_slot {
         ratelimiter_wait(&mut ratelimiter);
         let headers = get_headers(&mut rpc, &rpc_url, slot).await?;
         println!("Headers: {:?}", headers);
@@ -88,6 +89,7 @@ pub async fn main(
         //     .await?
         //     .text()
         //     .await?;
+        db.put("sync_progress", slot.to_le_bytes())?;
     }
 
     Ok(())
