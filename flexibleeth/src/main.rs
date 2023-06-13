@@ -3,6 +3,7 @@ use ratelimit::Ratelimiter;
 use std::time::Duration;
 
 mod confrule;
+mod data;
 mod sync;
 
 #[derive(Parser)]
