@@ -26,44 +26,48 @@ async fn get_headers(
     let parsed_json: serde_json::Value = serde_json::from_str(&json_string)?;
 
     let mut headers = Vec::new();
-    for hdr in parsed_json["data"].as_array().unwrap() {
-        println!("{:?}", hdr.get("root"));
-        // headers.push(IdentifiedData {
-        //     root: hdr["root"].as_str().unwrap().to_string(),
-        //     data: data::Header {
-        //         slot: hdr["header"].as_object().unwrap()["message"]
-        //             .as_object()
-        //             .unwrap()["slot"]
-        //             .as_u64()
-        //             .unwrap() as usize,
-        //         proposer_index: hdr["header"].as_object().unwrap()["message"]
-        //             .as_object()
-        //             .unwrap()["proposer_index"]
-        //             .as_u64()
-        //             .unwrap() as usize,
-        //         parent_root: hdr["header"].as_object().unwrap()["message"]
-        //             .as_object()
-        //             .unwrap()["parent_root"]
-        //             .as_str()
-        //             .unwrap()
-        //             .to_string(),
-        //         state_root: hdr["header"].as_object().unwrap()["message"]
-        //             .as_object()
-        //             .unwrap()["state_root"]
-        //             .as_str()
-        //             .unwrap()
-        //             .to_string(),
-        //         body_root: hdr["header"].as_object().unwrap()["message"]
-        //             .as_object()
-        //             .unwrap()["body_root"]
-        //             .as_str()
-        //             .unwrap()
-        //             .to_string(),
-        //     },
-        // });
+    match parsed_json["data"].as_array() {
+        Some(payload) => {
+            for hdr in payload {
+                println!("{:?}", hdr.get("root"));
+                // headers.push(IdentifiedData {
+                //     root: hdr["root"].as_str().unwrap().to_string(),
+                //     data: data::Header {
+                //         slot: hdr["header"].as_object().unwrap()["message"]
+                //             .as_object()
+                //             .unwrap()["slot"]
+                //             .as_u64()
+                //             .unwrap() as usize,
+                //         proposer_index: hdr["header"].as_object().unwrap()["message"]
+                //             .as_object()
+                //             .unwrap()["proposer_index"]
+                //             .as_u64()
+                //             .unwrap() as usize,
+                //         parent_root: hdr["header"].as_object().unwrap()["message"]
+                //             .as_object()
+                //             .unwrap()["parent_root"]
+                //             .as_str()
+                //             .unwrap()
+                //             .to_string(),
+                //         state_root: hdr["header"].as_object().unwrap()["message"]
+                //             .as_object()
+                //             .unwrap()["state_root"]
+                //             .as_str()
+                //             .unwrap()
+                //             .to_string(),
+                //         body_root: hdr["header"].as_object().unwrap()["message"]
+                //             .as_object()
+                //             .unwrap()["body_root"]
+                //             .as_str()
+                //             .unwrap()
+                //             .to_string(),
+                //     },
+                // });
+            }
+            Ok(headers)
+        }
+        None => Ok(vec![]),
     }
-
-    Ok(headers)
 }
 
 pub async fn main(
