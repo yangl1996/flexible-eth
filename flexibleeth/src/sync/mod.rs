@@ -1,4 +1,4 @@
-use crate::data::{self, IdentifiedData};
+use crate::data::{self, GetHeadersResponse, IdentifiedData, ResponseError};
 use ratelimit::Ratelimiter;
 use reqwest;
 use rocksdb::{Options, DB};
@@ -23,15 +23,14 @@ async fn get_headers(
         .text()
         .await?;
 
-    let parsed_json: serde_json::Value = serde_json::from_str(&json_string)?;
-
-    let mut headers = Vec::new();
-    match parsed_json["data"].as_array() {
-        Some(payload) => {
-            for hdr in payload {
-                println!("{:?}", hdr.get("root"));
-                // headers.push(IdentifiedData {
-                //     root: hdr["root"].as_str().unwrap().to_string(),
+    println!("{}", json_string);
+    match serde_json::from_str::<GetHeadersResponse>(&json_string) {
+        Ok(resp) => {
+            let mut headers = Vec::new();
+            for hdr in resp.data {
+                println!("{:?}", hdr.header.message);
+                //headers.push(IdentifiedData {
+                //    root: hdr["root"].as_str().unwrap().to_string(),
                 //     data: data::Header {
                 //         slot: hdr["header"].as_object().unwrap()["message"]
                 //             .as_object()
@@ -66,7 +65,15 @@ async fn get_headers(
             }
             Ok(headers)
         }
-        None => Ok(vec![]),
+        Err(_) => {
+            // It could either be that the slot is empty, or we encountered a server error.
+            // Figure it out by parsing the error message.
+            let err = serde_json::from_str::<ResponseError>(&json_string)?;
+            match err.code {
+                404 => Ok(vec![]),
+                _ => Err(Box::new(err)),
+            }
+        }
     }
 }
 

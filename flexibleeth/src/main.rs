@@ -75,11 +75,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .format_timestamp_millis()
         .init();
 
-    log::error!("Testing logging: ERROR-type message");
-    log::warn!("Testing logging: WARN-type message");
-    log::info!("Testing logging: INFO-type message");
-    log::debug!("Testing logging: DEBUG-type message");
-    log::trace!("Testing logging: TRACE-type message");
+    //log::error!("Testing logging: ERROR-type message");
+    //log::warn!("Testing logging: WARN-type message");
+    //log::info!("Testing logging: INFO-type message");
+    //log::debug!("Testing logging: DEBUG-type message");
+    //log::trace!("Testing logging: TRACE-type message");
 
     match cli.command {
         Commands::Sync {
