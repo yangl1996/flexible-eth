@@ -8,7 +8,6 @@ use std::fmt;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResponseError {
-    #[serde(rename = "statusCode")]
     pub code: usize,
     pub message: String,
 }
@@ -79,8 +78,8 @@ pub async fn get_headers(
 pub async fn get_block(
     client: &mut reqwest::Client,
     rpc_url: &str,
-    root: &data::Root,
-) -> Result<data::IdentifiedData<data::Block>, Box<dyn std::error::Error>> {
+    slot: &usize,
+) -> Result<Option<data::Block>, Box<dyn std::error::Error>> {
     #[derive(Debug, Clone, Deserialize)]
     struct GetBlockResponse {
         data: GetBlockResponseData,
@@ -92,7 +91,7 @@ pub async fn get_block(
     }
 
     let json_string = client
-        .get(format!("{}/eth/v2/beacon/blocks/{}", rpc_url, root))
+        .get(format!("{}/eth/v2/beacon/blocks/{}", rpc_url, slot))
         .header(reqwest::header::ACCEPT, "application/json")
         .send()
         .await?
@@ -100,13 +99,10 @@ pub async fn get_block(
         .await?;
 
     match serde_json::from_str::<GetBlockResponse>(&json_string) {
-        Ok(resp) => Ok(data::IdentifiedData {
-            root: root.clone(),
-            data: resp.data.message,
-        }),
+        Ok(resp) => Ok(Some(resp.data.message)),
         Err(_) => {
             let err = serde_json::from_str::<ResponseError>(&json_string)?;
-            Err(Box::new(err))
+            Ok(None)
         }
     }
 }
@@ -116,7 +112,7 @@ pub async fn get_block(
 pub async fn get_state_finality_checkpoints(
     client: &mut reqwest::Client,
     rpc_url: &str,
-    root: &data::Root,
+    slot: &usize,
 ) -> Result<(data::Checkpoint, data::Checkpoint, data::Checkpoint), Box<dyn std::error::Error>> {
     #[derive(Debug, Clone, Deserialize)]
     struct GetStateFinalityCheckpointsResponse {
@@ -133,7 +129,7 @@ pub async fn get_state_finality_checkpoints(
     let json_string = client
         .get(format!(
             "{}/eth/v1/beacon/states/{}/finality_checkpoints",
-            rpc_url, root
+            rpc_url, slot
         ))
         .header(reqwest::header::ACCEPT, "application/json")
         .send()
@@ -157,7 +153,7 @@ pub async fn get_state_finality_checkpoints(
 pub async fn get_state_validators(
     client: &mut reqwest::Client,
     rpc_url: &str,
-    root: &data::Root,
+    slot: &usize,
 ) -> Result<Vec<data::ValidatorAssignment>, Box<dyn std::error::Error>> {
     #[derive(Debug, Clone, Deserialize)]
     struct GetStateValidatorsResponse {
@@ -167,7 +163,7 @@ pub async fn get_state_validators(
     let json_string = client
         .get(format!(
             "{}/eth/v1/beacon/states/{}/validators",
-            rpc_url, root
+            rpc_url, slot
         ))
         .header(reqwest::header::ACCEPT, "application/json")
         .send()
@@ -187,7 +183,7 @@ pub async fn get_state_validators(
 pub async fn get_state_committees(
     client: &mut reqwest::Client,
     rpc_url: &str,
-    root: &data::Root,
+    slot: &usize,
 ) -> Result<Vec<data::CommitteeAssignment>, Box<dyn std::error::Error>> {
     #[derive(Debug, Clone, Deserialize)]
     struct GetStateCommitteesResponse {
@@ -197,15 +193,13 @@ pub async fn get_state_committees(
     let json_string = client
         .get(format!(
             "{}/eth/v1/beacon/states/{}/committees",
-            rpc_url, root
+            rpc_url, slot
         ))
         .header(reqwest::header::ACCEPT, "application/json")
         .send()
         .await?
         .text()
         .await?;
-
-    log::info!("Committee: {:?}", json_string);
 
     match serde_json::from_str::<GetStateCommitteesResponse>(&json_string) {
         Ok(resp) => Ok(resp.data),
