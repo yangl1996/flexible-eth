@@ -5,6 +5,7 @@ use std::time::Duration;
 mod confrule;
 mod data;
 mod sync;
+mod utils;
 
 #[derive(Parser)]
 #[command(author, version, about, long_about = None)]
