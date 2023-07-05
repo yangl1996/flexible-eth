@@ -57,50 +57,59 @@ pub async fn main(
     for slot in begin_slot..max_slot {
         log::info!("Syncing slot {}", slot);
 
+        // sync canonical chain blocks
         ratelimiter_wait(&mut ratelimiter);
-        let blk_root = match api::get_block_root(&mut rpc, &rpc_url, &slot).await? {
+        let blk_root = match api::get_blockroot_by_slot(&mut rpc, &rpc_url, &slot).await? {
             Some(root) => {
                 log::debug!("Canonical block root: {:?}", root);
                 db.put(format!("block_{}", &slot), bincode::serialize(&root)?)?;
-                Some(root)
+                root
             }
-            None => None,
+            None => continue, // skip empty slots
         };
 
-        if let Some(root) = blk_root {
-            ratelimiter_wait(&mut ratelimiter);
-            match api::get_block(&mut rpc, &rpc_url, &root).await? {
-                Some(blk) => {
-                    log::debug!("Canonical block: {:?}", blk);
-                    db.put(format!("block_{}", &root), bincode::serialize(&blk)?)?;
+        // sync block
+        ratelimiter_wait(&mut ratelimiter);
+        let blk = api::get_block_by_blockroot(&mut rpc, &rpc_url, &blk_root)
+            .await?
+            .expect("Block not found");
+        log::debug!("Canonical block: {:?}", blk);
+        db.put(format!("block_{}", &blk_root), bincode::serialize(&blk)?)?;
 
-                    if blk.parent_root
-                        == "0x0000000000000000000000000000000000000000000000000000000000000000"
-                    {
-                        assert!(blk.slot == 0);
-                        assert!(blk.proposer_index == 0);
-                        assert!(root == data::HEADER_GENESIS_ROOT);
-
-                        db.put(format!("chain_{}", &root), bincode::serialize(&vec![root])?)?;
-                    } else {
-                        let mut chain = bincode::deserialize::<Vec<data::Root>>(
-                            &db.get(&format!("chain_{}", blk.parent_root))?
-                                .expect("Parent chain not found"),
-                        )?;
-                        chain.push(root.clone());
-                        db.put(format!("chain_{}", &root), bincode::serialize(&chain)?)?;
-                    }
-                }
-                None => {}
-            }
+        // sync block chain structure
+        if blk.parent_root == "0x0000000000000000000000000000000000000000000000000000000000000000" {
+            assert!(blk.slot == 0);
+            assert!(blk.proposer_index == 0);
+            assert!(blk_root == data::HEADER_GENESIS_ROOT);
+            db.put(
+                format!("chain_{}", &blk_root),
+                bincode::serialize(&vec![blk_root])?,
+            )?;
+        } else {
+            let mut chain = bincode::deserialize::<Vec<data::Root>>(
+                &db.get(&format!("chain_{}", blk.parent_root))?
+                    .expect("Parent chain not found"),
+            )?;
+            chain.push(blk_root.clone());
+            db.put(format!("chain_{}", &blk_root), bincode::serialize(&chain)?)?;
         }
 
+        // sync state at epoch boundaries
         if is_epoch_boundary_slot(slot) {
             ratelimiter_wait(&mut ratelimiter);
             let (cp_previous_justified, cp_current_justified, cp_finalized) =
-                api::get_state_finality_checkpoints(&mut rpc, &rpc_url, &slot).await?;
+                api::get_state_finality_checkpoints_by_slot(&mut rpc, &rpc_url, &slot).await?;
+            // TODO: the code below doesn't work. apparently while Prysm retains old states, they can only be accessed by-slot, not by-state-root ...
+            // api::get_state_finality_checkpoints_by_stateroot(
+            //     &mut rpc,
+            //     &rpc_url,
+            //     &blk.state_root,
+            // )
+            // .await?;
+            let state_root = api::get_stateroot_by_slot(&mut rpc, &rpc_url, &slot).await?;
+            assert!(state_root == blk.state_root); // TODO: to mitigate the issue above, check that we can identify the state by its root of which we just retrieved the checkpoints ...
             db.put(
-                format!("state_{}_finality_checkpoints", slot),
+                format!("state_{}_finality_checkpoints", blk.state_root),
                 bincode::serialize(&(cp_previous_justified, cp_current_justified, cp_finalized))?,
             )?;
 
