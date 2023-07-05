@@ -35,7 +35,7 @@ enum Commands {
         max_slot: usize,
 
         /// Rate limit for beacon chain RPC endpoint: requests (numerator)
-        #[arg(long, default_value_t = 2)]
+        #[arg(long, default_value_t = 10)]
         rl_requests: usize,
 
         /// Rate limit for beacon chain RPC endpoint: seconds (denominator)

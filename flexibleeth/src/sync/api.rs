@@ -283,10 +283,44 @@ pub async fn get_headers(
 
 // BLOCKS
 
-pub async fn get_block(
+#[allow(dead_code)]
+pub async fn get_block_root(
     client: &mut reqwest::Client,
     rpc_url: &str,
     slot: &usize,
+) -> Result<Option<data::Root>, Box<dyn std::error::Error>> {
+    #[derive(Debug, Clone, Deserialize)]
+    struct GetBlockRootResponse {
+        data: GetBlockRootResponseData,
+    }
+
+    #[derive(Debug, Clone, Deserialize)]
+    struct GetBlockRootResponseData {
+        root: data::Root,
+    }
+
+    let json_string = client
+        .get(format!("{}/eth/v1/beacon/blocks/{}/root", rpc_url, slot))
+        .header(reqwest::header::ACCEPT, "application/json")
+        .send()
+        .await?
+        .text()
+        .await?;
+
+    match serde_json::from_str::<GetBlockRootResponse>(&json_string) {
+        Ok(resp) => Ok(Some(resp.data.root)),
+        Err(_) => {
+            let _err = serde_json::from_str::<ResponseError>(&json_string)?;
+            // Err(Box::new(err)) // TODO: handle error properly: if the canonical chain doesn't have a block for a certain slot, then Prysm returns an error code
+            Ok(None)
+        }
+    }
+}
+
+pub async fn get_block(
+    client: &mut reqwest::Client,
+    rpc_url: &str,
+    root: &data::Root,
 ) -> Result<Option<data::Block>, Box<dyn std::error::Error>> {
     #[derive(Debug, Clone, Deserialize)]
     struct GetBlockResponse {
@@ -299,7 +333,7 @@ pub async fn get_block(
     }
 
     let json_string = client
-        .get(format!("{}/eth/v2/beacon/blocks/{}", rpc_url, slot))
+        .get(format!("{}/eth/v2/beacon/blocks/{}", rpc_url, root))
         .header(reqwest::header::ACCEPT, "application/json")
         .send()
         .await?

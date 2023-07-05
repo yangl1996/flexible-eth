@@ -4,6 +4,7 @@ use reqwest;
 use rocksdb::DB;
 
 mod api;
+use crate::data;
 use crate::utils::{self, is_epoch_boundary_slot};
 
 fn ratelimiter_wait(ratelimiter: &mut Ratelimiter) {
@@ -57,12 +58,41 @@ pub async fn main(
         log::info!("Syncing slot {}", slot);
 
         ratelimiter_wait(&mut ratelimiter);
-        match api::get_block(&mut rpc, &rpc_url, &slot).await? {
-            Some(blk) => {
-                log::debug!("Block: {:?}", blk);
-                db.put(format!("block_{}", &slot), bincode::serialize(&blk)?)?;
+        let blk_root = match api::get_block_root(&mut rpc, &rpc_url, &slot).await? {
+            Some(root) => {
+                log::debug!("Canonical block root: {:?}", root);
+                db.put(format!("block_{}", &slot), bincode::serialize(&root)?)?;
+                Some(root)
             }
-            None => {}
+            None => None,
+        };
+
+        if let Some(root) = blk_root {
+            ratelimiter_wait(&mut ratelimiter);
+            match api::get_block(&mut rpc, &rpc_url, &root).await? {
+                Some(blk) => {
+                    log::debug!("Canonical block: {:?}", blk);
+                    db.put(format!("block_{}", &root), bincode::serialize(&blk)?)?;
+
+                    if blk.parent_root
+                        == "0x0000000000000000000000000000000000000000000000000000000000000000"
+                    {
+                        assert!(blk.slot == 0);
+                        assert!(blk.proposer_index == 0);
+                        assert!(root == data::HEADER_GENESIS_ROOT);
+
+                        db.put(format!("chain_{}", &root), bincode::serialize(&vec![root])?)?;
+                    } else {
+                        let mut chain = bincode::deserialize::<Vec<data::Root>>(
+                            &db.get(&format!("chain_{}", blk.parent_root))?
+                                .expect("Parent chain not found"),
+                        )?;
+                        chain.push(root.clone());
+                        db.put(format!("chain_{}", &root), bincode::serialize(&chain)?)?;
+                    }
+                }
+                None => {}
+            }
         }
 
         if is_epoch_boundary_slot(slot) {

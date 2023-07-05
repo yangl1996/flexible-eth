@@ -8,5 +8,7 @@
 
 All data stored in the database is bincoded.
 - `sync_progress: usize`: Number of the latest completely sync'ed slot.
-- `block_<<slot>>: data::Block`: Block for given slot on the canonical chain
+- `block_<<root>>: data::Block`: Block for given root
+- `block_<<slot>>: data::Root`: Block root for given slot on the canonical chain
+- `chain_<<root>>: Vec<data::Root>`: Sequence of block roots on the chain identified by given root
 - `state_<<slot>>_finality_checkpoints: (data::Checkpoint, data::Checkpoint, data::Checkpoint)`: Checkpoint information committed into the block for given slot on the canonical chain
