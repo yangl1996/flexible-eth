@@ -31,3 +31,19 @@ pub fn get_unixtime() -> u64 {
         .unwrap()
         .as_secs()
 }
+
+pub fn is_prefix_of<T: PartialEq>(prefix: &[T], superfix: &[T]) -> bool {
+    if prefix.len() > superfix.len() {
+        return false;
+    }
+    for i in 0..prefix.len() {
+        if prefix[i] != superfix[i] {
+            return false;
+        }
+    }
+    true
+}
+
+pub fn is_consistent_with<T: PartialEq>(vec1: &[T], vec2: &[T]) -> bool {
+    is_prefix_of(vec1, vec2) || is_prefix_of(vec2, vec1)
+}

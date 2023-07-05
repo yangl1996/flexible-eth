@@ -427,48 +427,6 @@ pub async fn get_state_finality_checkpoints_by_slot(
 }
 
 // #[allow(dead_code)]
-// pub async fn get_state_finality_checkpoints_by_stateroot(
-//     client: &mut reqwest::Client,
-//     rpc_url: &str,
-//     root: &data::Root,
-// ) -> Result<(data::Checkpoint, data::Checkpoint, data::Checkpoint), Box<dyn std::error::Error>> {
-//     #[derive(Debug, Clone, Deserialize)]
-//     struct GetStateFinalityCheckpointsResponse {
-//         data: GetStateFinalityCheckpointsResponseData,
-//     }
-
-//     #[derive(Debug, Clone, Deserialize)]
-//     struct GetStateFinalityCheckpointsResponseData {
-//         previous_justified: ApiCheckpoint,
-//         current_justified: ApiCheckpoint,
-//         finalized: ApiCheckpoint,
-//     }
-
-//     let json_string = client
-//         .get(format!(
-//             "{}/eth/v1/beacon/states/{}/finality_checkpoints",
-//             rpc_url, root
-//         ))
-//         .header(reqwest::header::ACCEPT, "application/json")
-//         .send()
-//         .await?
-//         .text()
-//         .await?;
-
-//     match serde_json::from_str::<GetStateFinalityCheckpointsResponse>(&json_string) {
-//         Ok(resp) => Ok((
-//             resp.data.previous_justified.into(),
-//             resp.data.current_justified.into(),
-//             resp.data.finalized.into(),
-//         )),
-//         Err(_) => {
-//             let err = serde_json::from_str::<ResponseError>(&json_string)?;
-//             Err(Box::new(err))
-//         }
-//     }
-// }
-
-// #[allow(dead_code)]
 // pub async fn get_state_validators_by_slot(
 //     client: &mut reqwest::Client,
 //     rpc_url: &str,
@@ -499,33 +457,32 @@ pub async fn get_state_finality_checkpoints_by_slot(
 //     }
 // }
 
-// #[allow(dead_code)]
-// pub async fn get_state_committees_by_slot(
-//     client: &mut reqwest::Client,
-//     rpc_url: &str,
-//     slot: &usize,
-// ) -> Result<Vec<data::CommitteeAssignment>, Box<dyn std::error::Error>> {
-//     #[derive(Debug, Clone, Deserialize)]
-//     struct GetStateCommitteesResponse {
-//         data: Vec<ApiCommitteeAssignment>,
-//     }
+pub async fn get_state_committees_by_slot(
+    client: &mut reqwest::Client,
+    rpc_url: &str,
+    slot: &usize,
+) -> Result<Vec<data::CommitteeAssignment>, Box<dyn std::error::Error>> {
+    #[derive(Debug, Clone, Deserialize)]
+    struct GetStateCommitteesResponse {
+        data: Vec<ApiCommitteeAssignment>,
+    }
 
-//     let json_string = client
-//         .get(format!(
-//             "{}/eth/v1/beacon/states/{}/committees",
-//             rpc_url, slot
-//         ))
-//         .header(reqwest::header::ACCEPT, "application/json")
-//         .send()
-//         .await?
-//         .text()
-//         .await?;
+    let json_string = client
+        .get(format!(
+            "{}/eth/v1/beacon/states/{}/committees",
+            rpc_url, slot
+        ))
+        .header(reqwest::header::ACCEPT, "application/json")
+        .send()
+        .await?
+        .text()
+        .await?;
 
-//     match serde_json::from_str::<GetStateCommitteesResponse>(&json_string) {
-//         Ok(resp) => Ok(resp.data.into_iter().map(Into::into).collect()),
-//         Err(_) => {
-//             let err = serde_json::from_str::<ResponseError>(&json_string)?;
-//             Err(Box::new(err))
-//         }
-//     }
-// }
+    match serde_json::from_str::<GetStateCommitteesResponse>(&json_string) {
+        Ok(resp) => Ok(resp.data.into_iter().map(Into::into).collect()),
+        Err(_) => {
+            let err = serde_json::from_str::<ResponseError>(&json_string)?;
+            Err(Box::new(err))
+        }
+    }
+}

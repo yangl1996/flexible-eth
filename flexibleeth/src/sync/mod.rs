@@ -61,7 +61,7 @@ pub async fn main(
         ratelimiter_wait(&mut ratelimiter);
         let blk_root = match api::get_blockroot_by_slot(&mut rpc, &rpc_url, &slot).await? {
             Some(root) => {
-                log::debug!("Canonical block root: {:?}", root);
+                log::debug!("Canonical block root: {:?}", &root);
                 db.put(format!("block_{}", &slot), bincode::serialize(&root)?)?;
                 root
             }
@@ -73,7 +73,7 @@ pub async fn main(
         let blk = api::get_block_by_blockroot(&mut rpc, &rpc_url, &blk_root)
             .await?
             .expect("Block not found");
-        log::debug!("Canonical block: {:?}", blk);
+        log::debug!("Canonical block: {:?}", &blk);
         db.put(format!("block_{}", &blk_root), bincode::serialize(&blk)?)?;
 
         // sync block chain structure
@@ -81,6 +81,7 @@ pub async fn main(
             assert!(blk.slot == 0);
             assert!(blk.proposer_index == 0);
             assert!(blk_root == data::HEADER_GENESIS_ROOT);
+            log::debug!("Genesis block, trivial block chain!");
             db.put(
                 format!("chain_{}", &blk_root),
                 bincode::serialize(&vec![blk_root])?,
@@ -91,23 +92,32 @@ pub async fn main(
                     .expect("Parent chain not found"),
             )?;
             chain.push(blk_root.clone());
+            log::debug!("Block chain: {:?}", &chain);
             db.put(format!("chain_{}", &blk_root), bincode::serialize(&chain)?)?;
         }
 
         // sync state at epoch boundaries
         if is_epoch_boundary_slot(slot) {
+            // TODO: while Prysm retains old states, it seems they can only be accessed by-slot, not by-state-root.
+            // so we make sure that retrieving by slot gives us data that belongs to the right state-root (that of the block)
+            ratelimiter_wait(&mut ratelimiter);
+            let tmp_state_root = api::get_stateroot_by_slot(&mut rpc, &rpc_url, &slot).await?;
+            log::debug!(
+                "State-root by block: {:?} / state-root by slot: {:?}",
+                &blk.state_root,
+                &tmp_state_root
+            );
+            assert!(tmp_state_root == blk.state_root);
+
             ratelimiter_wait(&mut ratelimiter);
             let (cp_previous_justified, cp_current_justified, cp_finalized) =
                 api::get_state_finality_checkpoints_by_slot(&mut rpc, &rpc_url, &slot).await?;
-            // TODO: the code below doesn't work. apparently while Prysm retains old states, they can only be accessed by-slot, not by-state-root ...
-            // api::get_state_finality_checkpoints_by_stateroot(
-            //     &mut rpc,
-            //     &rpc_url,
-            //     &blk.state_root,
-            // )
-            // .await?;
-            let state_root = api::get_stateroot_by_slot(&mut rpc, &rpc_url, &slot).await?;
-            assert!(state_root == blk.state_root); // TODO: to mitigate the issue above, check that we can identify the state by its root of which we just retrieved the checkpoints ...
+            log::debug!(
+                "Finality checkpoints: {:?}, {:?}, {:?}",
+                &cp_previous_justified,
+                &cp_current_justified,
+                &cp_finalized
+            );
             db.put(
                 format!("state_{}_finality_checkpoints", blk.state_root),
                 bincode::serialize(&(cp_previous_justified, cp_current_justified, cp_finalized))?,
@@ -120,12 +130,24 @@ pub async fn main(
             //     bincode::serialize(&vals)?,
             // )?;
 
-            // ratelimiter_wait(&mut ratelimiter);
-            // let comms = api::get_state_committees(&mut rpc, &rpc_url, &slot).await?;
-            // db.put(
-            //     format!("state_{}_committees", slot),
-            //     bincode::serialize(&comms)?,
-            // )?;
+            ratelimiter_wait(&mut ratelimiter);
+            let committees = api::get_state_committees_by_slot(&mut rpc, &rpc_url, &slot).await?;
+            log::debug!("Committees: {:?}", &committees);
+            db.put(
+                format!("state_{}_committees", blk.state_root),
+                bincode::serialize(&committees)?,
+            )?;
+
+            // TODO: while Prysm retains old states, it seems they can only be accessed by-slot, not by-state-root.
+            // so we make sure that retrieving by slot gives us data that belongs to the right state-root (that of the block)
+            ratelimiter_wait(&mut ratelimiter);
+            let tmp_state_root = api::get_stateroot_by_slot(&mut rpc, &rpc_url, &slot).await?;
+            log::debug!(
+                "State-root by block: {:?} / state-root by slot: {:?}",
+                &blk.state_root,
+                &tmp_state_root
+            );
+            assert!(tmp_state_root == blk.state_root);
         }
 
         db.put("sync_progress", bincode::serialize(&slot)?)?;
