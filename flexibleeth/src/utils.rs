@@ -48,3 +48,50 @@ pub fn is_prefix_of<T: PartialEq>(prefix: &[T], superfix: &[T]) -> bool {
 pub fn is_consistent_with<T: PartialEq>(vec1: &[T], vec2: &[T]) -> bool {
     is_prefix_of(vec1, vec2) || is_prefix_of(vec2, vec1)
 }
+
+#[derive(Debug)]
+pub struct AggregationBits {
+    bits: Vec<u8>,
+}
+
+impl AggregationBits {
+    pub fn new_from_0xhex_str(bits: &str) -> Self {
+        assert!(bits.starts_with("0x"));
+        let mut bits = bits[2..].to_string();
+        if bits.len() % 2 != 0 {
+            bits = format!("0{}", bits);
+        }
+        let bits = (0..bits.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&bits[i..i + 2], 16).unwrap())
+            .collect();
+        Self { bits }
+    }
+
+    pub fn new_from_0xhex_str_zeroed(bits: &str) -> Self {
+        let mut ret = Self::new_from_0xhex_str(bits);
+        for i in 0..ret.bits.len() {
+            ret.bits[i] = 0;
+        }
+        ret
+    }
+
+    pub fn incorporate_delta(&mut self, additional: &Self) -> Self {
+        assert!(self.bits.len() == additional.bits.len());
+        let mut delta = Self { bits: vec![0; self.bits.len()] };
+        for i in 0..self.bits.len() {
+            delta.bits[i] = additional.bits[i] & !(self.bits[i]);
+            self.bits[i] = self.bits[i] | additional.bits[i];
+        }
+        delta
+    }
+
+    pub fn count(&self) -> usize {
+        let mut cnt = 0;
+        for val in &self.bits {
+            cnt += val.count_ones() as usize;
+        }
+        cnt
+    }
+}
+

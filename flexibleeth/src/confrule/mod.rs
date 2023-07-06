@@ -1,6 +1,6 @@
 use bincode;
 use rocksdb::DB;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
 use crate::data;
 use crate::utils;
@@ -120,6 +120,7 @@ pub async fn main(
         log::info!("Validator q: {}", validators_q);
         let mut validators_votes: usize = 0;
 
+        let mut votes_counted_aggregators = HashMap::new();
         for blkroot_chain in chain_e[chain_em1.len() - 1..].iter() {
             log::debug!("Counting votes in block-root {}", blkroot_chain);
 
@@ -143,38 +144,15 @@ pub async fn main(
                     continue;
                 }
 
-                // log::debug!("Attestation: {:?}", attestation);
-                // log::debug!("Accounting committees: {:?}", accounting_committees);
-                let was_present =
-                    accounting_committees.remove(&(attestation.data.slot, attestation.data.index));
-                // assert!(was_present);
-                // TODO: to avoid dealing with intersection of aggregation_bits, count only the first attestation for a (slot, index) pair
-                if !was_present {
-                    continue;
+                assert!(accounting_committees.contains(&(attestation.data.slot, attestation.data.index)));
+                if !votes_counted_aggregators.contains_key(&(attestation.data.slot, attestation.data.index)) {
+                    votes_counted_aggregators.insert((attestation.data.slot, attestation.data.index), utils::AggregationBits::new_from_0xhex_str_zeroed(&attestation.aggregation_bits));
                 }
+                let votes_counted_aggregator = votes_counted_aggregators.get_mut(&(attestation.data.slot, attestation.data.index)).unwrap();
 
-                assert!(attestation.aggregation_bits.starts_with("0x"));
-                for val in attestation.aggregation_bits[2..].chars() {
-                    validators_votes += match val {
-                        '0' => 0,
-                        '1' => 1,
-                        '2' => 1,
-                        '3' => 2,
-                        '4' => 1,
-                        '5' => 2,
-                        '6' => 2,
-                        '7' => 3,
-                        '8' => 1,
-                        '9' => 2,
-                        'a' => 2,
-                        'b' => 3,
-                        'c' => 2,
-                        'd' => 3,
-                        'e' => 3,
-                        'f' => 4,
-                        _ => panic!("Invalid hex character"),
-                    };
-                }
+                let new_aggregate_aggregator = utils::AggregationBits::new_from_0xhex_str(&attestation.aggregation_bits);
+                let new_votes = votes_counted_aggregator.incorporate_delta(&new_aggregate_aggregator);
+                validators_votes += new_votes.count();
             }
         }
 
