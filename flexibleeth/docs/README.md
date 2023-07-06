@@ -12,3 +12,4 @@ All data stored in the database is bincoded.
 - `block_<<slot>>: data::Root`: Block-root for given slot on the canonical chain
 - `chain_<<root>>: Vec<data::Root>`: Sequence of block-roots on the chain identified by given block-root
 - `state_<<root>>_finality_checkpoints: (data::Checkpoint, data::Checkpoint, data::Checkpoint)`: Checkpoint information committed by the given state-root
+- `state_<<root>>_committees: Vec<data::CommitteeAssignment>`: Committee information committed by the given state-root

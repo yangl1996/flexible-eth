@@ -1,5 +1,6 @@
 use bincode;
 use rocksdb::DB;
+use std::collections::HashSet;
 
 use crate::data;
 use crate::utils;
@@ -71,6 +72,8 @@ pub async fn main(
             }
         };
 
+        log::info!("Block-roots: e-1: {} / e: {}", blkroot_em1, blkroot_e);
+
         let blk_e = bincode::deserialize::<data::Block>(
             &db.get(&format!("block_{}", blkroot_e))?
                 .expect("Block not found"),
@@ -90,10 +93,39 @@ pub async fn main(
         )?;
         assert!(utils::is_prefix_of(&chain_em1, &chain_e));
 
+        let committees = bincode::deserialize::<Vec<data::CommitteeAssignment>>(
+            &db.get(&format!("state_{}_committees", blk_em1.state_root))?
+                .expect("Committees not found"),
+        )?;
+
+        let mut accounting_committees = HashSet::new();
+        let mut accounting_validators = HashSet::new();
+        let mut validators_n: usize = 0;
+        for committee in committees {
+            assert!(committee.slot >= slot_em1);
+            assert!(committee.slot < slot_e);
+
+            let is_new = accounting_committees.insert((committee.slot, committee.index));
+            assert!(is_new);
+
+            for validator in committee.validators {
+                let is_new = accounting_validators.insert(validator);
+                assert!(is_new);
+                validators_n += 1;
+            }
+        }
+
+        log::info!("Validator n: {}", validators_n);
+        let validators_q = (validators_n as f64 * quorum).ceil() as usize;
+        log::info!("Validator q: {}", validators_q);
+
         // let (cp_previous_justified, cp_current_justified, cp_finalized) =
         //     bincode::deserialize::<(data::Checkpoint, data::Checkpoint, data::Checkpoint)>(
-        //         &db.get(&format!("state_{}_finality_checkpoints", slot_e_minus_1))?
-        //             .expect("Finality checkpoints not found"),
+        //         &db.get(&format!(
+        //             "state_{}_finality_checkpoints",
+        //             blk_em1.state_root
+        //         ))?
+        //         .expect("Finality checkpoints not found"),
         //     )?;
 
         // log::info!("Finalized checkpoint: {:?}", cp_finalized);
