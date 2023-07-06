@@ -2,8 +2,11 @@ use bincode;
 use rocksdb::DB;
 use std::collections::{HashSet, HashMap};
 
+mod rule;
 use crate::data;
 use crate::utils;
+
+use self::rule::ConfirmationRuleState;
 
 pub async fn main(
     db_path: String,
@@ -50,9 +53,10 @@ pub async fn main(
     }
 
     // run confirmation rule
+    let mut conf_rule_state = ConfirmationRuleState::new(quorum, data::HEADER_GENESIS_ROOT.to_string());
     let mut current_tip = data::HEADER_GENESIS_ROOT.to_string();
     for epoch in 1..(utils::slot_to_epoch(max_slot) + 1) {
-        log::info!("Running confirmation rule for epoch {}", epoch);
+        log::info!("Running confirmation rules for epoch {}", epoch);
 
         let slot_e = utils::epoch_to_slot(epoch);
         let slot_em1 = utils::epoch_to_slot(epoch - 1);
@@ -74,10 +78,10 @@ pub async fn main(
 
         log::info!("Block-roots: e-1: {} / e: {}", blkroot_em1, blkroot_e);
 
-        let _blk_e = bincode::deserialize::<data::Block>(
-            &db.get(&format!("block_{}", blkroot_e))?
-                .expect("Block for blkroot_e not found"),
-        )?;
+        // let blk_e = bincode::deserialize::<data::Block>(
+        //     &db.get(&format!("block_{}", blkroot_e))?
+        //         .expect("Block for blkroot_e not found"),
+        // )?;
         let blk_em1 = bincode::deserialize::<data::Block>(
             &db.get(&format!("block_{}", blkroot_em1))?
                 .expect("Block for blkroot_em1 not found"),
@@ -97,6 +101,15 @@ pub async fn main(
             &db.get(&format!("state_{}_committees", blk_em1.state_root))?
                 .expect("Committees not found"),
         )?;
+        // let blkroots = chain_e[chain_em1.len() - 1..].to_vec();
+        // let blocks = blkroots.iter().map(|blkroot_chain| {
+        //     let blk_chain = bincode::deserialize::<data::Block>(
+        //         &db.get(&format!("block_{}", blkroot_chain))?
+        //             .expect("Block not found"),
+        //     )?;
+        //     log::debug!("Block: {:?}", blk_chain);
+        //     Ok(blk_chain)
+        // }).collect::<Vec<_>>()?;
 
         let mut accounting_committees = HashSet::new();
         let mut accounting_validators = HashSet::new();
