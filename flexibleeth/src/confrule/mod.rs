@@ -224,13 +224,15 @@ pub async fn main(
                     .expect("Block for current_tip not found"),
             )?;
 
-            // println!(
-            //     "CONFIRMATION({}): t={} tip_root={} tip_slot={} tip={:?}",
-            //     quorum, slot_e, current_tip, blk_tip.slot, blk_tip
-            // );
             println!(
-                "CONFIRMATION({}): t={} tip_root={} tip_slot={}",
-                quorum, slot_e, current_tip, blk_tip.slot
+                "CONFIRMATION({}/{}={}>={}): t={} tip_root={} tip_slot={}",
+                validators_votes,
+                validators_n,
+                validators_votes as f64 / validators_n as f64,
+                quorum,
+                slot_e,
+                current_tip,
+                blk_tip.slot
             );
         }
     }
