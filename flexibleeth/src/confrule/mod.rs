@@ -199,7 +199,10 @@ pub async fn main(
                 )?;
             let mut new_tip = cp_finalized.root;
 
-            log::info!("... which commits them to finalizing {}!", new_tip);
+            log::info!(
+                "... which commits them to considering finalized: {}",
+                new_tip
+            );
             if new_tip == "0x0000000000000000000000000000000000000000000000000000000000000000" {
                 new_tip = data::HEADER_GENESIS_ROOT.to_string();
             }
@@ -216,7 +219,15 @@ pub async fn main(
 
             current_tip = new_tip;
 
-            log::info!("New tip: {}", current_tip);
+            let blk_tip = bincode::deserialize::<data::Block>(
+                &db.get(&format!("block_{}", current_tip))?
+                    .expect("Block for current_tip not found"),
+            )?;
+
+            println!(
+                "CONFIRMATION({}): t={} tip_root={} tip_slot={} tip={:?}",
+                quorum, slot_e, current_tip, blk_tip.slot, blk_tip
+            );
         }
 
         // log::info!("Finalized checkpoint: {:?}", cp_finalized);
