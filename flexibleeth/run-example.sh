@@ -1,6 +1,12 @@
 #! /bin/sh
 
-MAXSLOT=25600
+if [ $# -lt 1 ]; then
+	echo "Usage: ./run-example.sh <MAXSLOT>"
+    exit 1
+fi
+
+MAXSLOT=$1
+
 
 cargo run --release -- -vv sync --rpc-url http://jneu:8Crd2iUnG0qg57M8RPcYKuPbZYZOwrLPLhHpTNvI@home.leiy.me:46235 --max-slot $MAXSLOT --rl-requests 1000
 
