@@ -1,6 +1,6 @@
 #! /bin/sh
 
-MAXSLOT=2560
+MAXSLOT=25600
 
 cargo run --release -- -vv sync --rpc-url http://jneu:8Crd2iUnG0qg57M8RPcYKuPbZYZOwrLPLhHpTNvI@home.leiy.me:46235 --max-slot $MAXSLOT --rl-requests 1000
 
