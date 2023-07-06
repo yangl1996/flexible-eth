@@ -55,6 +55,16 @@ pub async fn main(
     // run confirmation rule
     let mut conf_rule_state = ConfirmationRuleState::new(quorum, data::HEADER_GENESIS_ROOT.to_string());
     let mut current_tip = data::HEADER_GENESIS_ROOT.to_string();
+    println!(
+        "CONFIRMATION({}/{}={}>={}): t={} tip_root={} tip_slot={}",
+        0,
+        0,
+        1.0,
+        1.0,
+        0,
+        current_tip,
+        0
+    );
     for epoch in 1..(utils::slot_to_epoch(max_slot) + 1) {
         log::info!("Running confirmation rules for epoch {}", epoch);
 
