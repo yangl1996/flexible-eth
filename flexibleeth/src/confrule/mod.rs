@@ -224,28 +224,15 @@ pub async fn main(
                     .expect("Block for current_tip not found"),
             )?;
 
+            // println!(
+            //     "CONFIRMATION({}): t={} tip_root={} tip_slot={} tip={:?}",
+            //     quorum, slot_e, current_tip, blk_tip.slot, blk_tip
+            // );
             println!(
-                "CONFIRMATION({}): t={} tip_root={} tip_slot={} tip={:?}",
-                quorum, slot_e, current_tip, blk_tip.slot, blk_tip
+                "CONFIRMATION({}): t={} tip_root={} tip_slot={}",
+                quorum, slot_e, current_tip, blk_tip.slot
             );
         }
-
-        // log::info!("Finalized checkpoint: {:?}", cp_finalized);
-        // let mut finalized_root = cp_finalized.root;
-        // // if finalized_root == "0x0000000000000000000000000000000000000000000000000000000000000000" {
-        // //     finalized_root = data::HEADER_GENESIS_ROOT.to_string();
-        // // }
-        // if finalized_root != "0x0000000000000000000000000000000000000000000000000000000000000000" {
-        //     log::info!(
-        //         "Finalized block: {:?}",
-        //         bincode::deserialize::<data::Block>(
-        //             &db.get(&format!("block_{}", finalized_root))?
-        //                 .expect("Block not found")
-        //         )
-        //     );
-        // }
-        // // log::info!("Current justified checkpoint: {:?}", cp_current_justified);
-        // // log::info!("Previous justified checkpoint: {:?}", cp_previous_justified);
     }
 
     Ok(())
