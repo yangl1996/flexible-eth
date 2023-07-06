@@ -74,22 +74,22 @@ pub async fn main(
 
         log::info!("Block-roots: e-1: {} / e: {}", blkroot_em1, blkroot_e);
 
-        let blk_e = bincode::deserialize::<data::Block>(
+        let _blk_e = bincode::deserialize::<data::Block>(
             &db.get(&format!("block_{}", blkroot_e))?
-                .expect("Block not found"),
+                .expect("Block for blkroot_e not found"),
         )?;
         let blk_em1 = bincode::deserialize::<data::Block>(
             &db.get(&format!("block_{}", blkroot_em1))?
-                .expect("Block not found"),
+                .expect("Block for blkroot_em1 not found"),
         )?;
 
         let chain_e = bincode::deserialize::<Vec<data::Root>>(
             &db.get(&format!("chain_{}", blkroot_e))?
-                .expect("Chain of block-roots not found"),
+                .expect("Chain of block-roots for blkroot_e not found"),
         )?;
         let chain_em1 = bincode::deserialize::<Vec<data::Root>>(
             &db.get(&format!("chain_{}", blkroot_em1))?
-                .expect("Chain of block-roots not found"),
+                .expect("Chain of block-roots for blkroot_em1 not found"),
         )?;
         assert!(utils::is_prefix_of(&chain_em1, &chain_e));
 
@@ -118,15 +118,106 @@ pub async fn main(
         log::info!("Validator n: {}", validators_n);
         let validators_q = (validators_n as f64 * quorum).ceil() as usize;
         log::info!("Validator q: {}", validators_q);
+        let mut validators_votes: usize = 0;
 
-        // let (cp_previous_justified, cp_current_justified, cp_finalized) =
-        //     bincode::deserialize::<(data::Checkpoint, data::Checkpoint, data::Checkpoint)>(
-        //         &db.get(&format!(
-        //             "state_{}_finality_checkpoints",
-        //             blk_em1.state_root
-        //         ))?
-        //         .expect("Finality checkpoints not found"),
-        //     )?;
+        for blkroot_chain in chain_e[chain_em1.len() - 1..].iter() {
+            log::debug!("Counting votes in block-root {}", blkroot_chain);
+
+            let blk_chain = bincode::deserialize::<data::Block>(
+                &db.get(&format!("block_{}", blkroot_chain))?
+                    .expect("Block not found"),
+            )?;
+            log::debug!("Block: {:?}", blk_chain);
+
+            for attestation in blk_chain.body.attestations {
+                if attestation.data.slot < slot_em1 {
+                    // skip attestations from before the epoch in question
+                    continue;
+                }
+                if attestation.data.slot >= slot_e {
+                    // skip attestations from after the epoch in question
+                    continue;
+                }
+                if attestation.data.target.root != blkroot_em1 {
+                    // skip attestations that are not for the target in question
+                    continue;
+                }
+
+                // log::debug!("Attestation: {:?}", attestation);
+                // log::debug!("Accounting committees: {:?}", accounting_committees);
+                let was_present =
+                    accounting_committees.remove(&(attestation.data.slot, attestation.data.index));
+                // assert!(was_present);
+                // TODO: to avoid dealing with intersection of aggregation_bits, count only the first attestation for a (slot, index) pair
+                if !was_present {
+                    continue;
+                }
+
+                assert!(attestation.aggregation_bits.starts_with("0x"));
+                for val in attestation.aggregation_bits[2..].chars() {
+                    validators_votes += match val {
+                        '0' => 0,
+                        '1' => 1,
+                        '2' => 1,
+                        '3' => 2,
+                        '4' => 1,
+                        '5' => 2,
+                        '6' => 2,
+                        '7' => 3,
+                        '8' => 1,
+                        '9' => 2,
+                        'a' => 2,
+                        'b' => 3,
+                        'c' => 2,
+                        'd' => 3,
+                        'e' => 3,
+                        'f' => 4,
+                        _ => panic!("Invalid hex character"),
+                    };
+                }
+            }
+        }
+
+        log::info!("Validator votes: {}", validators_votes);
+
+        if validators_votes >= validators_q {
+            log::info!(
+                "Quorum {}/{} >= {} have acknowledged {} ...",
+                validators_votes,
+                validators_n,
+                quorum,
+                blkroot_em1
+            );
+
+            let (_cp_previous_justified, _cp_current_justified, cp_finalized) =
+                bincode::deserialize::<(data::Checkpoint, data::Checkpoint, data::Checkpoint)>(
+                    &db.get(&format!(
+                        "state_{}_finality_checkpoints",
+                        blk_em1.state_root
+                    ))?
+                    .expect("Finality checkpoints not found"),
+                )?;
+            let mut new_tip = cp_finalized.root;
+
+            log::info!("... which commits them to finalizing {}!", new_tip);
+            if new_tip == "0x0000000000000000000000000000000000000000000000000000000000000000" {
+                new_tip = data::HEADER_GENESIS_ROOT.to_string();
+            }
+
+            let chain_current_tip = bincode::deserialize::<Vec<data::Root>>(
+                &db.get(&format!("chain_{}", current_tip))?
+                    .expect("Chain of block-roots for current_tip not found"),
+            )?;
+            let chain_new_tip = bincode::deserialize::<Vec<data::Root>>(
+                &db.get(&format!("chain_{}", new_tip))?
+                    .expect("Chain of block-roots for new_tip not found"),
+            )?;
+            assert!(utils::is_prefix_of(&chain_current_tip, &chain_new_tip));
+
+            current_tip = new_tip;
+
+            log::info!("New tip: {}", current_tip);
+        }
 
         // log::info!("Finalized checkpoint: {:?}", cp_finalized);
         // let mut finalized_root = cp_finalized.root;
@@ -145,11 +236,6 @@ pub async fn main(
         // // log::info!("Current justified checkpoint: {:?}", cp_current_justified);
         // // log::info!("Previous justified checkpoint: {:?}", cp_previous_justified);
     }
-
-    // println!("Confirmation rule called!");
-    // println!("DB path: {:?}", db_path);
-    // println!("Quorum: {:?}", quorum);
-    // println!("Max slot: {:?}", max_slot);
 
     Ok(())
 }

@@ -44,6 +44,7 @@ pub fn is_prefix_of<T: PartialEq>(prefix: &[T], superfix: &[T]) -> bool {
     true
 }
 
+#[allow(dead_code)]
 pub fn is_consistent_with<T: PartialEq>(vec1: &[T], vec2: &[T]) -> bool {
     is_prefix_of(vec1, vec2) || is_prefix_of(vec2, vec1)
 }
