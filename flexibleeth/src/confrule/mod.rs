@@ -132,6 +132,8 @@ pub async fn main(
         if cp_finalized_blkroot == "0x0000000000000000000000000000000000000000000000000000000000000000" {
             cp_finalized_blkroot = data::HEADER_GENESIS_ROOT.to_string();
         }
+
+        // load block information of the confirmation target in question
         let cp_finalized_blk = bincode::deserialize::<data::Block>(
             &db.get(&format!("block_{}", cp_finalized_blkroot))?
                 .expect("Block for cp_finalized_blk not found"),
@@ -140,27 +142,23 @@ pub async fn main(
             "Block to confirm: blkroot={}, slot={}",
             cp_finalized_blkroot, cp_finalized_blk.slot,
         );
+        let chain_tip_new = bincode::deserialize::<Vec<data::Root>>(
+            &db.get(&format!("chain_{}", cp_finalized_blkroot))?
+                .expect("Chain of block-roots for cp_finalized_blkroot not found"),
+        )?;
 
         // invoke confirmation rules
         for rule in conf_rule_states.iter_mut() {
             if rule.count_votes_for_confirmation(slot_em1, slot_e, &blkroot_em1, &committees, &blkroots, &blks) {
                 // confirmation takes place according to the rule
-
                 let tip_old = rule.get_tip_blkroot();
-                let tip_new = cp_finalized_blkroot.clone();
-
                 let chain_tip_old = bincode::deserialize::<Vec<data::Root>>(
                     &db.get(&format!("chain_{}", tip_old))?
                         .expect("Chain of block-roots for tip_old not found"),
                 )?;
-                let chain_tip_new = bincode::deserialize::<Vec<data::Root>>(
-                    &db.get(&format!("chain_{}", tip_new))?
-                        .expect("Chain of block-roots for tip_new not found"),
-                )?;
                 assert!(utils::is_prefix_of(&chain_tip_old, &chain_tip_new));
 
                 rule.update_tip(cp_finalized_blkroot.clone(), cp_finalized_blk.slot);
-
                 println!("LEDGER t={} {:?}", slot_e, rule);
             }
         }
