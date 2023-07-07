@@ -1,16 +1,13 @@
 use bincode;
 use rocksdb::DB;
-use std::collections::{HashSet, HashMap};
 
 mod rule;
 use crate::data;
 use crate::utils;
 
-use self::rule::ConfirmationRuleState;
-
 pub async fn main(
     db_path: String,
-    quorum: f64,
+    quorum: Vec<f64>,
     max_slot: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let db = DB::open_default(db_path)?;
@@ -52,25 +49,22 @@ pub async fn main(
         return Err("Sync is not complete".into());
     }
 
-    // run confirmation rule
-    let mut conf_rule_state = ConfirmationRuleState::new(quorum, data::HEADER_GENESIS_ROOT.to_string());
-    let mut current_tip = data::HEADER_GENESIS_ROOT.to_string();
-    println!(
-        "CONFIRMATION({}/{}={}>={}): t={} tip_root={} tip_slot={}",
-        0,
-        0,
-        1.0,
-        1.0,
-        0,
-        current_tip,
-        0
-    );
+    // setup confirmation rules
+    let mut conf_rule_states = Vec::new();
+    for (idx, q) in quorum.iter().enumerate() {
+        conf_rule_states.push(rule::ConfirmationRuleState::new(*q, data::HEADER_GENESIS_ROOT.to_string(), 0));
+        println!("LEDGER t={} {:?}", 0, conf_rule_states[idx]);
+    }
+
+    // run confirmation rules
     for epoch in 1..(utils::slot_to_epoch(max_slot) + 1) {
         log::info!("Running confirmation rules for epoch {}", epoch);
 
+        // slots at epoch boundaries
         let slot_e = utils::epoch_to_slot(epoch);
         let slot_em1 = utils::epoch_to_slot(epoch - 1);
 
+        // epoch boundary block-roots (skip epoch if epoch boundary blocks are missing -- TODO: this can probably be improved)
         let blkroot_e = match &db.get(&format!("block_{}", slot_e))? {
             Some(serialized_blkroot) => bincode::deserialize::<data::Root>(serialized_blkroot)?,
             None => {
@@ -85,9 +79,9 @@ pub async fn main(
                 continue;
             }
         };
-
         log::info!("Block-roots: e-1: {} / e: {}", blkroot_em1, blkroot_e);
 
+        // epoch boundary blocks
         // let blk_e = bincode::deserialize::<data::Block>(
         //     &db.get(&format!("block_{}", blkroot_e))?
         //         .expect("Block for blkroot_e not found"),
@@ -97,6 +91,7 @@ pub async fn main(
                 .expect("Block for blkroot_em1 not found"),
         )?;
 
+        // chains of epoch boundary blocks (to ensure consistency of the blocks)
         let chain_e = bincode::deserialize::<Vec<data::Root>>(
             &db.get(&format!("chain_{}", blkroot_e))?
                 .expect("Chain of block-roots for blkroot_e not found"),
@@ -107,134 +102,67 @@ pub async fn main(
         )?;
         assert!(utils::is_prefix_of(&chain_em1, &chain_e));
 
+        // load committee information necessary for confirmation rule to count votes
         let committees = bincode::deserialize::<Vec<data::CommitteeAssignment>>(
             &db.get(&format!("state_{}_committees", blk_em1.state_root))?
                 .expect("Committees not found"),
         )?;
-        // let blkroots = chain_e[chain_em1.len() - 1..].to_vec();
-        // let blocks = blkroots.iter().map(|blkroot_chain| {
-        //     let blk_chain = bincode::deserialize::<data::Block>(
-        //         &db.get(&format!("block_{}", blkroot_chain))?
-        //             .expect("Block not found"),
-        //     )?;
-        //     log::debug!("Block: {:?}", blk_chain);
-        //     Ok(blk_chain)
-        // }).collect::<Vec<_>>()?;
 
-        let mut accounting_committees = HashSet::new();
-        let mut accounting_validators = HashSet::new();
-        let mut validators_n: usize = 0;
-        for committee in committees {
-            assert!(committee.slot >= slot_em1);
-            assert!(committee.slot < slot_e);
-
-            let is_new = accounting_committees.insert((committee.slot, committee.index));
-            assert!(is_new);
-
-            for validator in committee.validators {
-                let is_new = accounting_validators.insert(validator);
-                assert!(is_new);
-                validators_n += 1;
-            }
-        }
-
-        log::info!("Validator n: {}", validators_n);
-        let validators_q = (validators_n as f64 * quorum).ceil() as usize;
-        log::info!("Validator q: {}", validators_q);
-        let mut validators_votes: usize = 0;
-
-        let mut votes_counted_aggregators = HashMap::new();
-        for blkroot_chain in chain_e[chain_em1.len() - 1..].iter() {
-            log::debug!("Counting votes in block-root {}", blkroot_chain);
-
+        // load blocks that contain the votes in question
+        let blkroots = chain_e[chain_em1.len() - 1..].to_vec();
+        let blks = blkroots.iter().map(|blkroot_chain| {
             let blk_chain = bincode::deserialize::<data::Block>(
                 &db.get(&format!("block_{}", blkroot_chain))?
                     .expect("Block not found"),
             )?;
             log::debug!("Block: {:?}", blk_chain);
+            Ok(blk_chain)
+        }).collect::<Result<Vec<data::Block>, Box<dyn std::error::Error>>>()?.to_vec();
 
-            for attestation in blk_chain.body.attestations {
-                if attestation.data.slot < slot_em1 {
-                    // skip attestations from before the epoch in question
-                    continue;
-                }
-                if attestation.data.slot >= slot_e {
-                    // skip attestations from after the epoch in question
-                    continue;
-                }
-                if attestation.data.target.root != blkroot_em1 {
-                    // skip attestations that are not for the target in question
-                    continue;
-                }
-
-                assert!(accounting_committees.contains(&(attestation.data.slot, attestation.data.index)));
-                if !votes_counted_aggregators.contains_key(&(attestation.data.slot, attestation.data.index)) {
-                    votes_counted_aggregators.insert((attestation.data.slot, attestation.data.index), utils::AggregationBits::new_from_0xhex_str_zeroed(&attestation.aggregation_bits));
-                }
-                let votes_counted_aggregator = votes_counted_aggregators.get_mut(&(attestation.data.slot, attestation.data.index)).unwrap();
-
-                let new_aggregate_aggregator = utils::AggregationBits::new_from_0xhex_str(&attestation.aggregation_bits);
-                let new_votes = votes_counted_aggregator.incorporate_delta(&new_aggregate_aggregator);
-                validators_votes += new_votes.count();
-            }
+        // load checkpoint information of what is the confirmation target in question
+        let (_cp_previous_justified, _cp_current_justified, cp_finalized) =
+        bincode::deserialize::<(data::Checkpoint, data::Checkpoint, data::Checkpoint)>(
+            &db.get(&format!(
+                "state_{}_finality_checkpoints",
+                blk_em1.state_root
+            ))?
+            .expect("Finality checkpoints not found"),
+        )?;
+        let mut cp_finalized_blkroot = cp_finalized.root;
+        if cp_finalized_blkroot == "0x0000000000000000000000000000000000000000000000000000000000000000" {
+            cp_finalized_blkroot = data::HEADER_GENESIS_ROOT.to_string();
         }
+        let cp_finalized_blk = bincode::deserialize::<data::Block>(
+            &db.get(&format!("block_{}", cp_finalized_blkroot))?
+                .expect("Block for cp_finalized_blk not found"),
+        )?;
+        log::info!(
+            "Block to confirm: blkroot={}, slot={}",
+            cp_finalized_blkroot, cp_finalized_blk.slot,
+        );
 
-        log::info!("Validator votes: {}", validators_votes);
+        // invoke confirmation rules
+        for rule in conf_rule_states.iter_mut() {
+            if rule.count_votes_for_confirmation(slot_em1, slot_e, &blkroot_em1, &committees, &blkroots, &blks) {
+                // confirmation takes place according to the rule
 
-        if validators_votes >= validators_q {
-            log::info!(
-                "Quorum {}/{} >= {} have acknowledged {} ...",
-                validators_votes,
-                validators_n,
-                quorum,
-                blkroot_em1
-            );
+                let tip_old = rule.get_tip_blkroot();
+                let tip_new = cp_finalized_blkroot.clone();
 
-            let (_cp_previous_justified, _cp_current_justified, cp_finalized) =
-                bincode::deserialize::<(data::Checkpoint, data::Checkpoint, data::Checkpoint)>(
-                    &db.get(&format!(
-                        "state_{}_finality_checkpoints",
-                        blk_em1.state_root
-                    ))?
-                    .expect("Finality checkpoints not found"),
+                let chain_tip_old = bincode::deserialize::<Vec<data::Root>>(
+                    &db.get(&format!("chain_{}", tip_old))?
+                        .expect("Chain of block-roots for tip_old not found"),
                 )?;
-            let mut new_tip = cp_finalized.root;
+                let chain_tip_new = bincode::deserialize::<Vec<data::Root>>(
+                    &db.get(&format!("chain_{}", tip_new))?
+                        .expect("Chain of block-roots for tip_new not found"),
+                )?;
+                assert!(utils::is_prefix_of(&chain_tip_old, &chain_tip_new));
 
-            log::info!(
-                "... which commits them to considering finalized: {}",
-                new_tip
-            );
-            if new_tip == "0x0000000000000000000000000000000000000000000000000000000000000000" {
-                new_tip = data::HEADER_GENESIS_ROOT.to_string();
+                rule.update_tip(cp_finalized_blkroot.clone(), cp_finalized_blk.slot);
+
+                println!("LEDGER t={} {:?}", slot_e, rule);
             }
-
-            let chain_current_tip = bincode::deserialize::<Vec<data::Root>>(
-                &db.get(&format!("chain_{}", current_tip))?
-                    .expect("Chain of block-roots for current_tip not found"),
-            )?;
-            let chain_new_tip = bincode::deserialize::<Vec<data::Root>>(
-                &db.get(&format!("chain_{}", new_tip))?
-                    .expect("Chain of block-roots for new_tip not found"),
-            )?;
-            assert!(utils::is_prefix_of(&chain_current_tip, &chain_new_tip));
-
-            current_tip = new_tip;
-
-            let blk_tip = bincode::deserialize::<data::Block>(
-                &db.get(&format!("block_{}", current_tip))?
-                    .expect("Block for current_tip not found"),
-            )?;
-
-            println!(
-                "CONFIRMATION({}/{}={}>={}): t={} tip_root={} tip_slot={}",
-                validators_votes,
-                validators_n,
-                validators_votes as f64 / validators_n as f64,
-                quorum,
-                slot_e,
-                current_tip,
-                blk_tip.slot
-            );
         }
     }
 

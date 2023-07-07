@@ -50,8 +50,8 @@ enum Commands {
         db_path: String,
 
         /// Confirmation quorum
-        #[arg(long, default_value_t = 0.67)]
-        quorum: f64,
+        #[arg(long, num_args = 1..)]
+        quorum: Vec<f64>,
 
         /// Maximum slot to process
         #[arg(long)]
