@@ -1,0 +1,9 @@
+Setting up Ethereum clients
+
+Prysm:
+
+beacon-chain --datadir /tank/ethereum/prysm-nonarchival --execution-endpoint /tank/ethereum/geth/geth.ipc
+
+Geth:
+
+geth --http --http.api eth,net,engine,admin --datadir /tank/ethereum/geth
