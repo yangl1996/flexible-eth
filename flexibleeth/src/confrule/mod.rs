@@ -1,5 +1,5 @@
 use bincode;
-use rocksdb::DB;
+use rocksdb::{DB, Options};
 
 mod rule;
 use crate::data;
@@ -10,7 +10,11 @@ pub async fn main(
     quorum: Vec<f64>,
     max_slot: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let db = DB::open_default(db_path)?;
+    let mut db_opts = Options::default();
+    // db_opts.create_if_missing(true);
+    db_opts.increase_parallelism(8);
+    // db_opts.optimize_level_style_compaction(16 * 1024 * 1024 * 1024);
+    let db = DB::open_for_read_only(&db_opts, db_path, true)?;
 
     // ensure confirmation is up to a reasonable target
     let mut max_slot = max_slot;
