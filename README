@@ -1,9 +1,27 @@
-Setting up Ethereum clients
+# How To: Setting up Ethereum clients
 
-Prysm:
+## Prysm:
 
-beacon-chain --datadir /tank/ethereum/prysm-nonarchival --execution-endpoint /tank/ethereum/geth/geth.ipc
+```
+# beacon-chain --datadir /tank/ethereum/prysm-nonarchival --execution-endpoint /tank/ethereum/geth/geth.ipc
+beacon-chain --datadir /home/ubuntu/prysm-data --execution-endpoint /home/ubuntu/geth-data/geth.ipc --slots-per-archive-point 32 --p2p-max-peers 200 --block-batch-limit 64
+```
 
-Geth:
+## Geth:
 
-geth --http --http.api eth,net,engine,admin --datadir /tank/ethereum/geth
+```
+# geth --http --http.api eth,net,engine,admin --datadir /tank/ethereum/geth
+geth --http --http.api eth,net,engine,admin --datadir /home/ubuntu/geth-data
+```
+
+## Lighthouse:
+
+```
+lighthouse bn --network mainnet --datadir /home/ubuntu/lighthouse-data --http --execution-endpoint http://localhost:8551 --execution-jwt /home/ubuntu/reth-data/jwt.hex --reconstruct-historic-states --slots-per-restore-point 256 --historic-state-cache-size 8 --checkpoint-sync-url https://mainnet.checkpoint.sigp.io --genesis-backfill --disable-backfill-rate-limiting
+```
+
+## Reth:
+
+```
+reth node --chain mainnet --datadir /home/ubuntu/reth-data --http --authrpc.jwtsecret /home/ubuntu/reth-data/jwt.hex --authrpc.addr 127.0.0.1 --authrpc.port 8551
+```
