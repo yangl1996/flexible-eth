@@ -1,4 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
+use libc;
+use num_cpus;
 
 pub const SLOTS_PER_EPOCH: usize = 32;
 pub const SECONDS_PER_SLOT: usize = 12;
@@ -95,3 +97,13 @@ impl AggregationBits {
     }
 }
 
+pub fn get_available_ram() -> usize {
+    let pages = unsafe { libc::sysconf(libc::_SC_PAGESIZE) } as libc::c_ulong;
+    let num_pages = unsafe { libc::sysconf(libc::_SC_PHYS_PAGES) } as libc::c_ulong;
+    let available_memory = pages * num_pages;
+    available_memory as usize
+}
+
+pub fn get_available_cpucores() -> usize {
+    num_cpus::get()
+}

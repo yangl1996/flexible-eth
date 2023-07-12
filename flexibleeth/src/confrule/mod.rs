@@ -12,8 +12,9 @@ pub async fn main(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut db_opts = Options::default();
     // db_opts.create_if_missing(true);
-    db_opts.increase_parallelism(8);
-    // db_opts.optimize_level_style_compaction(16 * 1024 * 1024 * 1024);
+    db_opts.increase_parallelism(utils::get_available_cpucores() as i32);
+    db_opts.optimize_level_style_compaction(utils::get_available_ram() / 4);
+    db_opts.optimize_for_point_lookup(utils::get_available_ram() as u64 / 4);
     let db = DB::open_for_read_only(&db_opts, db_path, true)?;
 
     // ensure confirmation is up to a reasonable target
