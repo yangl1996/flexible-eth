@@ -1,7 +1,7 @@
 use bincode;
 use ratelimit::Ratelimiter;
 use reqwest;
-use rocksdb::DB;
+use rocksdb::{DB, Options};
 
 mod api;
 use crate::data;
@@ -19,7 +19,11 @@ pub async fn main(
     max_slot: usize,
     mut ratelimiter: Ratelimiter,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let db = DB::open_default(db_path)?;
+    let mut db_opts = Options::default();
+    // db_opts.create_if_missing(true);
+    db_opts.increase_parallelism(8);
+    // db_opts.optimize_level_style_compaction(16 * 1024 * 1024 * 1024);
+    let db = DB::open(&db_opts, db_path)?;
     let mut rpc = reqwest::Client::new();
 
     // ensure sync is up to a reasonable target
