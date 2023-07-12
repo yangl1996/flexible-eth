@@ -3,14 +3,12 @@
 ## Prysm:
 
 ```
-# beacon-chain --datadir /tank/ethereum/prysm-nonarchival --execution-endpoint /tank/ethereum/geth/geth.ipc
-beacon-chain --datadir /home/ubuntu/prysm-data --execution-endpoint /home/ubuntu/geth-data/geth.ipc --slots-per-archive-point 32 --p2p-max-peers 200 --block-batch-limit 64
+beacon-chain --datadir /home/ubuntu/prysm-data --execution-endpoint /home/ubuntu/geth-data/geth.ipc --slots-per-archive-point 32
 ```
 
 ## Geth:
 
 ```
-# geth --http --http.api eth,net,engine,admin --datadir /tank/ethereum/geth
 geth --http --http.api eth,net,engine,admin --datadir /home/ubuntu/geth-data
 ```
 
