@@ -21,5 +21,5 @@ lighthouse bn --network mainnet --datadir /home/ubuntu/lighthouse-data --http --
 ## Reth:
 
 ```
-reth node --chain mainnet --datadir /home/ubuntu/reth-data --http --authrpc.jwtsecret /home/ubuntu/reth-data/jwt.hex --authrpc.addr 127.0.0.1 --authrpc.port 8551
+reth node --chain mainnet --datadir /home/ubuntu/reth-data --http --http.api all --authrpc.jwtsecret /home/ubuntu/reth-data/jwt.hex --authrpc.addr 127.0.0.1 --authrpc.port 8551
 ```
