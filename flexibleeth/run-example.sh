@@ -7,9 +7,10 @@ fi
 
 DBPATH=$1
 MAXSLOT=$2
+BEACONAPIURL=http://flexeth:8Crd2iUnG0qg57M8RPcYKuPbZYZOwrLPLhHpTNvI@198.178.224.39:46235
 
 
-cargo run --release -- -vv sync --db-path $DBPATH --rpc-url http://jneu:8Crd2iUnG0qg57M8RPcYKuPbZYZOwrLPLhHpTNvI@home.leiy.me:46235 --max-slot $MAXSLOT --rl-requests 1000
+cargo run --release -- -vv sync --db-path $DBPATH --rpc-url $BEACONAPIURL --max-slot $MAXSLOT --rl-requests 1000
 mkdir output-example-$MAXSLOT || true
 cargo run --release -- -vv conf-rule --db-path $DBPATH --max-slot $MAXSLOT --quorum 0.67 --quorum 0.80 --quorum 0.90 --quorum 0.95 --quorum 0.96 --quorum 0.97 --quorum 0.98 --quorum 0.99 > output-example-$MAXSLOT/conf-rule-log.txt
 
