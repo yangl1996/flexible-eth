@@ -7,7 +7,7 @@ fi
 
 DBPATH=$1
 MAXSLOT=$2
-BEACONAPIURL=http://flexeth:8Crd2iUnG0qg57M8RPcYKuPbZYZOwrLPLhHpTNvI@198.178.224.39:46235
+BEACONAPIURL=http://flexeth:8Crd2iUnG0qg57M8RPcYKuPbZYZOwrLPLhHpTNvI@localhost:46235
 
 
 cargo run --release -- -vv sync --db-path $DBPATH --rpc-url $BEACONAPIURL --max-slot $MAXSLOT --rl-requests 1000
