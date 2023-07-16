@@ -1,4 +1,4 @@
-# Optimal High-Safety Flexible Consensus (Proof-of-Concept Confirmation Rule for Ethereum)
+# Optimal High-Safety Flexible Consensus (Confirmation Rule for Ethereum)
 
 To reproduce the experiments with our proof-of-concept implementation of the flexible confirmation rule for Ethereum (derived from our optimal high-safety flexible consensus construction):
 1. Setup and run an Ethereum full node (see instructions below, requires ~50 hours of time and ~4TB of NVMe SSD storage)
@@ -64,7 +64,7 @@ apt-get install ifstat htop tmux iotop vnstat net-tools
 ```
 
 
-## Proof-of-Concept Confirmation Rule for Ethereum
+## Confirmation Rule for Ethereum
 
 ```
 cd flexible-eth/flexibleeth
@@ -74,4 +74,4 @@ cd flexible-eth/flexibleeth
 
 ## Output
 
-After running the proof-of-concept confirmation rule for Ethereum (see `run-example.sh` script), the output is found in `output-example-...`.
+After running the proof-of-concept implementation of the confirmation rule for Ethereum (see `run-example.sh` script), the output is found in `output-example-...`.
