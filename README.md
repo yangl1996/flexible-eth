@@ -38,13 +38,15 @@ foundryup
 apt-get install ifstat htop tmux iotop vnstat net-tools
 ```
 
-## Prysm:
+
+
+## NOT USED: Prysm:
 
 ```
 beacon-chain --datadir /home/ubuntu/prysm-data --execution-endpoint /home/ubuntu/geth-data/geth.ipc --slots-per-archive-point 32
 ```
 
-## Geth:
+## NOT USED: Geth:
 
 ```
 geth --http --http.api eth,net,engine,admin --datadir /home/ubuntu/geth-data
