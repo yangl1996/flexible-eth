@@ -30,6 +30,10 @@ enum Commands {
         #[arg(long, default_value = "https://lodestar-mainnet.chainsafe.io")]
         rpc_url: String,
 
+        /// Minimum slot to synchronize
+        #[arg(long, default_value = "0")]
+        min_slot: usize,
+
         /// Maximum slot to synchronize
         #[arg(long)]
         max_slot: usize,
@@ -52,6 +56,10 @@ enum Commands {
         /// Confirmation quorum
         #[arg(long, num_args = 1..)]
         quorum: Vec<f64>,
+
+        /// Minimum slot to process
+        #[arg(long, default_value = "0")]
+        min_slot: usize,
 
         /// Maximum slot to process
         #[arg(long)]
@@ -86,6 +94,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::Sync {
             db_path,
             rpc_url,
+            min_slot,
             max_slot,
             rl_requests,
             rl_seconds,
@@ -93,6 +102,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             crate::sync::main(
                 db_path,
                 rpc_url,
+                min_slot,
                 max_slot,
                 Ratelimiter::builder(rl_requests as u64, Duration::from_secs_f64(rl_seconds))
                     .max_tokens(rl_requests as u64 * 3)
@@ -104,7 +114,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Commands::ConfRule {
             db_path,
             quorum,
+            min_slot,
             max_slot,
-        } => crate::confrule::main(db_path, quorum, max_slot).await,
+        } => crate::confrule::main(db_path, quorum, min_slot, max_slot).await,
     }
 }

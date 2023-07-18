@@ -8,6 +8,7 @@ use crate::utils;
 pub async fn main(
     db_path: String,
     quorum: Vec<f64>,
+    min_slot: usize,
     max_slot: usize,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut db_opts = Options::default();

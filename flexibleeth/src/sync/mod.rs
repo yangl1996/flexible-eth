@@ -16,6 +16,7 @@ fn ratelimiter_wait(ratelimiter: &mut Ratelimiter) {
 pub async fn main(
     db_path: String,
     rpc_url: String,
+    min_slot: usize,
     max_slot: usize,
     mut ratelimiter: Ratelimiter,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -28,6 +29,11 @@ pub async fn main(
     let mut rpc = reqwest::Client::new();
 
     // ensure sync is up to a reasonable target
+    if max_slot < min_slot {
+        log::error!(
+            "Maximum slot cannot be smaller than the minimum slot"
+        );
+    }
     let mut max_slot = max_slot;
     let now_unixtime = utils::get_unixtime();
     let now_slot = utils::unixtime_to_slot(now_unixtime);
@@ -49,11 +55,27 @@ pub async fn main(
         );
         max_slot = new_max_slot;
     }
+    let mut min_slot = min_slot;
+    if min_slot != utils::most_recent_epoch_boundary_slot_for_slot(min_slot) {
+        let new_min_slot = utils::most_recent_epoch_boundary_slot_for_slot(min_slot);
+        log::warn!(
+            "Minimum slot {} is not an epoch boundary, using {} instead",
+            min_slot,
+            new_min_slot
+        );
+        min_slot = new_min_slot;
+    }
 
     // track sync progress
-    let begin_slot = match db.get("sync_progress")? {
+    // TODO: does not attempt to synchronize smaller slots if they are skipped in an earlier invocation
+    let first_unsynched = match db.get("sync_progress")? {
         Some(serialized) => bincode::deserialize::<usize>(&serialized)? + 1,
         None => 0,
+    };
+    let begin_slot = if min_slot > first_unsynched {
+        min_slot
+    } else {
+        first_unsynched
     };
     max_slot += 1; // include last epoch boundary block in sync
     log::info!("Syncing slots {}..{}", begin_slot, max_slot);
