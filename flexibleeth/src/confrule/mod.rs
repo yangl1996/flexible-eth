@@ -5,6 +5,23 @@ mod rule;
 use crate::data;
 use crate::utils;
 
+pub  fn get_first_block(
+    db: &DB,
+    epoch: usize,
+) -> Result<Option<(data::Root, usize)>, Box<dyn std::error::Error>> {
+    for s in utils::epoch_to_slot(epoch)..utils::epoch_to_slot(epoch+1) {
+        match &db.get(&format!("block_{}", s))? {
+            Some(serialized_blkroot) => {
+                return Ok(Some((bincode::deserialize::<data::Root>(serialized_blkroot)?, s)));
+            }
+            None => {
+                continue;
+            }
+        };
+    }
+    return Ok(None);
+}
+
 pub async fn main(
     db_path: String,
     quorum: Vec<f64>,
@@ -70,6 +87,7 @@ pub async fn main(
     // setup confirmation rules
     let mut conf_rule_states = Vec::new();
     for (idx, q) in quorum.iter().enumerate() {
+        // FIXME: we are initing the confirmation rule with genesis root, which is not correct. Fortunately the confirmed tip (which this root is affecting) is not used in the conf rule for now (all relevant checks are disabled).
         conf_rule_states.push(rule::ConfirmationRuleState::new(*q, data::HEADER_GENESIS_ROOT.to_string(), 0));
         println!("LEDGER t={} {:?}", 0, conf_rule_states[idx]);
     }
@@ -78,26 +96,23 @@ pub async fn main(
     for epoch in (utils::slot_to_epoch(min_slot) + 1)..(utils::slot_to_epoch(max_slot) + 1) {
         log::info!("Running confirmation rules for epoch {}", epoch);
 
-        // slots at epoch boundaries
-        let slot_e = utils::epoch_to_slot(epoch);
-        let slot_em1 = utils::epoch_to_slot(epoch - 1);
+        // epoch boundary block-roots and slot numbers (skip epoch if the entire epoch is empty)
+        let (blkroot_e, slot_e) = match get_first_block(&db, epoch)? {
+            Some(v) => v,
+            None => {
+                log::warn!("Epoch {} is empty", epoch);
+                continue;
+            },
+        };
+        let (blkroot_em1, slot_em1) = match get_first_block(&db, epoch-1)? {
+            Some(v) => v,
+            None => {
+                log::warn!("Epoch {} is empty", epoch-1);
+                continue;
+            },
+        };
 
-        // epoch boundary block-roots (skip epoch if epoch boundary blocks are missing -- TODO: this can probably be improved)
-        let blkroot_e = match &db.get(&format!("block_{}", slot_e))? {
-            Some(serialized_blkroot) => bincode::deserialize::<data::Root>(serialized_blkroot)?,
-            None => {
-                log::warn!("Block at slot {} not found", slot_e);
-                continue;
-            }
-        };
-        let blkroot_em1 = match &db.get(&format!("block_{}", slot_em1))? {
-            Some(serialized_blkroot) => bincode::deserialize::<data::Root>(serialized_blkroot)?,
-            None => {
-                log::warn!("Block at slot {} not found", slot_em1);
-                continue;
-            }
-        };
-        log::info!("Block-roots: e-1: {} / e: {}", blkroot_em1, blkroot_e);
+        log::info!("First-block roots and slots: e-1: {} ({}) / e: {} ({})", blkroot_em1, slot_em1, blkroot_e, blkroot_e);
 
         // epoch boundary blocks
         // let blk_e = bincode::deserialize::<data::Block>(
@@ -152,6 +167,7 @@ pub async fn main(
         }).collect::<Result<Vec<data::Block>, Box<dyn std::error::Error>>>()?.to_vec();
 
         // load checkpoint information of what is the confirmation target in question
+        // TODO: check if the following assumption is correct---the checkpoint loaded here is the same as the one from the EBB for epoch e-1
         let (_cp_previous_justified, _cp_current_justified, cp_finalized) =
         bincode::deserialize::<(data::Checkpoint, data::Checkpoint, data::Checkpoint)>(
             &db.get(&format!(

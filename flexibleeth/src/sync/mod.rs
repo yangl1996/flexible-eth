@@ -5,7 +5,7 @@ use rocksdb::{DB, Options};
 
 mod api;
 use crate::data;
-use crate::utils::{self, is_epoch_boundary_slot};
+use crate::utils::{self, is_epoch_boundary_slot, slot_to_epoch};
 
 fn ratelimiter_wait(ratelimiter: &mut Ratelimiter) {
     while let Err(sleep) = ratelimiter.try_wait() {
@@ -126,8 +126,8 @@ pub async fn main(
         }
         */
 
-        // sync state at epoch boundaries
-        if is_epoch_boundary_slot(slot) {
+        // sync state at epoch boundaries or at the first blocks of epochs
+        if db.get(format!("epoch_{}_state_synched", &utils::slot_to_epoch(slot)))?.is_none() {
             // TODO: while Prysm retains old states, it seems they can only be accessed by-slot, not by-state-root.
             // so we make sure that retrieving by slot gives us data that belongs to the right state-root (that of the block)
             ratelimiter_wait(&mut ratelimiter);
@@ -178,6 +178,7 @@ pub async fn main(
                 &tmp_state_root
             );
             assert!(tmp_state_root == blk.state_root);
+            db.put(format!("epoch_{}_state_synched", &utils::slot_to_epoch(slot)), bincode::serialize(&true)?)?;
         }
 
 

@@ -26,7 +26,7 @@ impl ConfirmationRuleState {
         let mut accounting_validators = HashSet::new();
         let mut validators_n: usize = 0;
         for committee in committees {
-            assert!(committee.slot >= slot_em1);
+            assert!(committee.slot >= utils::most_recent_epoch_boundary_slot_for_slot(slot_em1));
             assert!(committee.slot < slot_e);
 
             let is_new = accounting_committees.insert((committee.slot, committee.index));
