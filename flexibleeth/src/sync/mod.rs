@@ -69,7 +69,7 @@ pub async fn main(
     max_slot += 1; // include last epoch boundary block in sync
     log::info!("Syncing slots {}..{}", min_slot, max_slot);
 
-    let mut last_nonempty_slot: Option<usize> = None;
+    let mut last_block_root: Option<data::Root> = None;
     // sync
     for slot in min_slot..max_slot {
         if db.get(format!("slot_{}_synched", slot))?.is_some() {
@@ -85,17 +85,17 @@ pub async fn main(
             Some(root) => {
                 log::debug!("Canonical block root: {:?}", &root);
                 db.put(format!("block_{}", &slot), bincode::serialize(&root)?)?;
-                last_nonempty_slot = Some(slot);
+                last_block_root = Some(root.clone());
                 if is_epoch_boundary_slot(slot) {
-                    log::debug!("Epoch {} boundary block comes from slot {}", &utils::slot_to_epoch(slot), &slot);
-                    db.put(format!("ebb_{}_source_slot", &utils::slot_to_epoch(slot)), bincode::serialize(&slot)?)?;
+                    log::debug!("Epoch {} boundary block: {}", &utils::slot_to_epoch(slot), &root);
+                    db.put(format!("ebb_{}_root", &utils::slot_to_epoch(slot)), bincode::serialize(&root)?)?;
                 }
                 root
             }
             None => {
-                if is_epoch_boundary_slot(slot) && last_nonempty_slot.is_some() {
-                    log::debug!("Epoch {} boundary block comes from slot {}", &utils::slot_to_epoch(slot), &last_nonempty_slot.unwrap());
-                    db.put(format!("ebb_{}_source_slot", &utils::slot_to_epoch(slot)), bincode::serialize(&last_nonempty_slot.unwrap())?)?;
+                if is_epoch_boundary_slot(slot) && last_block_root.is_some() {
+                    log::debug!("Epoch {} boundary block: {}", &utils::slot_to_epoch(slot), &last_block_root.as_ref().unwrap());
+                    db.put(format!("ebb_{}_root", &utils::slot_to_epoch(slot)), bincode::serialize(&last_block_root.as_ref().unwrap())?)?;
                 }
                 db.put(
                     format!("slot_{}_synched", slot),

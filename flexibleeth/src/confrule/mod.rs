@@ -199,8 +199,12 @@ pub async fn main(
         */
 
         // invoke confirmation rules
+        let ebb_root = bincode::deserialize::<data::Root>(
+            &db.get(&format!("ebb_{}_root", epoch-1))?
+                .expect("EBB root for epoch-1 not found"),
+        )?;
         for rule in conf_rule_states.iter_mut() {
-            if rule.count_votes_for_confirmation(slot_em1, slot_e, &blkroot_em1, &committees, &blkroots, &blks) {
+            if rule.count_votes_for_confirmation(slot_em1, slot_e, &ebb_root, &committees, &blkroots, &blks) {
                 // confirmation takes place according to the rule
                 // FIXME: disabling the check
                 /*
