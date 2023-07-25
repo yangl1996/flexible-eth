@@ -66,23 +66,17 @@ pub async fn main(
         min_slot = new_min_slot;
     }
 
-    // track sync progress
-    // TODO: does not attempt to synchronize smaller slots if they are skipped in an earlier invocation
-    let first_unsynched = match db.get("sync_progress")? {
-        Some(serialized) => bincode::deserialize::<usize>(&serialized)? + 1,
-        None => 0,
-    };
-    let begin_slot = if min_slot > first_unsynched {
-        min_slot
-    } else {
-        first_unsynched
-    };
     max_slot += 1; // include last epoch boundary block in sync
-    log::info!("Syncing slots {}..{}", begin_slot, max_slot);
+    log::info!("Syncing slots {}..{}", min_slot, max_slot);
 
     // sync
-    for slot in begin_slot..max_slot {
-        log::info!("Syncing slot {}", slot);
+    for slot in min_slot..max_slot {
+        if db.get(format!("slot_{}_synched", slot))?.is_some() {
+            log::info!("Skipping synched slot {}", slot);
+            continue;
+        } else {
+            log::info!("Syncing slot {}", slot);
+        }
 
         // sync canonical chain blocks
         ratelimiter_wait(&mut ratelimiter);
@@ -92,7 +86,13 @@ pub async fn main(
                 db.put(format!("block_{}", &slot), bincode::serialize(&root)?)?;
                 root
             }
-            None => continue, // skip empty slots
+            None => {
+                db.put(
+                    format!("slot_{}_synched", slot),
+                    bincode::serialize(&true)?,
+                    )?;
+                continue;
+            }, // skip empty slots
         };
 
         // sync block
@@ -104,6 +104,8 @@ pub async fn main(
         db.put(format!("block_{}", &blk_root), bincode::serialize(&blk)?)?;
 
         // sync block chain structure
+        // FIXME: disabled since we assume there have not been 51% attack on eth
+        /*
         if blk.parent_root == "0x0000000000000000000000000000000000000000000000000000000000000000" {
             assert!(blk.slot == 0);
             assert!(blk.proposer_index == 0);
@@ -122,6 +124,7 @@ pub async fn main(
             log::debug!("Block chain: {:?}", &chain);
             db.put(format!("chain_{}", &blk_root), bincode::serialize(&chain)?)?;
         }
+        */
 
         // sync state at epoch boundaries
         if is_epoch_boundary_slot(slot) {
@@ -177,7 +180,11 @@ pub async fn main(
             assert!(tmp_state_root == blk.state_root);
         }
 
-        db.put("sync_progress", bincode::serialize(&slot)?)?;
+
+        db.put(
+            format!("slot_{}_synched", slot),
+            bincode::serialize(&true)?,
+            )?;
     }
 
     Ok(())

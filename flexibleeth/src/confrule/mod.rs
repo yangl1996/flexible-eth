@@ -19,6 +19,11 @@ pub async fn main(
     let db = DB::open_for_read_only(&db_opts, db_path, true)?;
 
     // ensure confirmation is up to a reasonable target
+    if max_slot < min_slot {
+        log::error!(
+            "Maximum slot cannot be smaller than the minimum slot"
+            );
+    }
     let mut max_slot = max_slot;
     let now_unixtime = utils::get_unixtime();
     let now_slot = utils::unixtime_to_slot(now_unixtime);
@@ -40,19 +45,26 @@ pub async fn main(
         );
         max_slot = new_max_slot;
     }
+    let mut min_slot = min_slot;
+    if min_slot != utils::most_recent_epoch_boundary_slot_for_slot(min_slot) {
+        let new_min_slot = utils::most_recent_epoch_boundary_slot_for_slot(min_slot);
+        log::warn!(
+            "Minimum slot {} is not an epoch boundary, using {} instead",
+            min_slot,
+            new_min_slot
+        );
+        min_slot = new_min_slot;
+    }
 
     // ensure necessary data has been sync'ed
-    let last_synced_slot = match db.get("sync_progress")? {
-        Some(serialized) => bincode::deserialize::<usize>(&serialized)?,
-        None => 0,
-    };
-    if last_synced_slot < max_slot {
-        log::error!(
-            "Sync is not up to slot {}, only up to slot {}",
-            max_slot,
-            last_synced_slot
-        );
-        return Err("Sync is not complete".into());
+    for slot in min_slot..max_slot {
+        if db.get(format!("slot_{}_synched", slot))?.is_none() {
+            log::error!(
+                "Slot {} not synched",
+                slot
+                );
+            return Err("Sync is not complete".into());
+        }
     }
 
     // setup confirmation rules
@@ -63,7 +75,7 @@ pub async fn main(
     }
 
     // run confirmation rules
-    for epoch in 1..(utils::slot_to_epoch(max_slot) + 1) {
+    for epoch in (utils::slot_to_epoch(min_slot) + 1)..(utils::slot_to_epoch(max_slot) + 1) {
         log::info!("Running confirmation rules for epoch {}", epoch);
 
         // slots at epoch boundaries
@@ -98,6 +110,8 @@ pub async fn main(
         )?;
 
         // chains of epoch boundary blocks (to ensure consistency of the blocks)
+        // FIXME: disabling the check since we assume there hasn't been a 51% attack
+        /*
         let chain_e = bincode::deserialize::<Vec<data::Root>>(
             &db.get(&format!("chain_{}", blkroot_e))?
                 .expect("Chain of block-roots for blkroot_e not found"),
@@ -107,6 +121,7 @@ pub async fn main(
                 .expect("Chain of block-roots for blkroot_em1 not found"),
         )?;
         assert!(utils::is_prefix_of(&chain_em1, &chain_e));
+        */
 
         // load committee information necessary for confirmation rule to count votes
         let committees = bincode::deserialize::<Vec<data::CommitteeAssignment>>(
@@ -115,7 +130,18 @@ pub async fn main(
         )?;
 
         // load blocks that contain the votes in question
-        let blkroots = chain_e[chain_em1.len() - 1..].to_vec();
+        let mut blkroots = vec![];
+        for s in slot_em1..=slot_e {
+            match &db.get(&format!("block_{}", s))? {
+                Some(serialized_blkroot) => {
+                    blkroots.push(bincode::deserialize::<data::Root>(serialized_blkroot)?);
+                }
+                None => {
+                    continue;
+                }
+            };
+        };
+        //let blkroots = chain_e[chain_em1.len() - 1..].to_vec();
         let blks = blkroots.iter().map(|blkroot_chain| {
             let blk_chain = bincode::deserialize::<data::Block>(
                 &db.get(&format!("block_{}", blkroot_chain))?
@@ -148,21 +174,27 @@ pub async fn main(
             "Block to confirm: blkroot={}, slot={}",
             cp_finalized_blkroot, cp_finalized_blk.slot,
         );
+        // FIXME: disabling the check
+        /*
         let chain_tip_new = bincode::deserialize::<Vec<data::Root>>(
             &db.get(&format!("chain_{}", cp_finalized_blkroot))?
                 .expect("Chain of block-roots for cp_finalized_blkroot not found"),
         )?;
+        */
 
         // invoke confirmation rules
         for rule in conf_rule_states.iter_mut() {
             if rule.count_votes_for_confirmation(slot_em1, slot_e, &blkroot_em1, &committees, &blkroots, &blks) {
                 // confirmation takes place according to the rule
+                // FIXME: disabling the check
+                /*
                 let tip_old = rule.get_tip_blkroot();
                 let chain_tip_old = bincode::deserialize::<Vec<data::Root>>(
                     &db.get(&format!("chain_{}", tip_old))?
                         .expect("Chain of block-roots for tip_old not found"),
                 )?;
                 assert!(utils::is_prefix_of(&chain_tip_old, &chain_tip_new));
+                */
 
                 rule.update_tip(cp_finalized_blkroot.clone(), cp_finalized_blk.slot);
                 println!("LEDGER t={} {:?}", slot_e, rule);
