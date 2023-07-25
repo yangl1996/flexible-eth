@@ -5,7 +5,7 @@ use rocksdb::{DB, Options};
 
 mod api;
 use crate::data;
-use crate::utils::{self, is_epoch_boundary_slot, slot_to_epoch};
+use crate::utils::{self, slot_to_epoch, is_epoch_boundary_slot};
 
 fn ratelimiter_wait(ratelimiter: &mut Ratelimiter) {
     while let Err(sleep) = ratelimiter.try_wait() {
@@ -69,6 +69,7 @@ pub async fn main(
     max_slot += 1; // include last epoch boundary block in sync
     log::info!("Syncing slots {}..{}", min_slot, max_slot);
 
+    let mut last_nonempty_slot: Option<usize> = None;
     // sync
     for slot in min_slot..max_slot {
         if db.get(format!("slot_{}_synched", slot))?.is_some() {
@@ -84,9 +85,18 @@ pub async fn main(
             Some(root) => {
                 log::debug!("Canonical block root: {:?}", &root);
                 db.put(format!("block_{}", &slot), bincode::serialize(&root)?)?;
+                last_nonempty_slot = Some(slot);
+                if is_epoch_boundary_slot(slot) {
+                    log::debug!("Epoch {} boundary block comes from slot {}", &utils::slot_to_epoch(slot), &slot);
+                    db.put(format!("ebb_{}_source_slot", &utils::slot_to_epoch(slot)), bincode::serialize(&slot)?)?;
+                }
                 root
             }
             None => {
+                if is_epoch_boundary_slot(slot) && last_nonempty_slot.is_some() {
+                    log::debug!("Epoch {} boundary block comes from slot {}", &utils::slot_to_epoch(slot), &last_nonempty_slot.unwrap());
+                    db.put(format!("ebb_{}_source_slot", &utils::slot_to_epoch(slot)), bincode::serialize(&last_nonempty_slot.unwrap())?)?;
+                }
                 db.put(
                     format!("slot_{}_synched", slot),
                     bincode::serialize(&true)?,
