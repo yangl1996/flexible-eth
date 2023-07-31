@@ -89,7 +89,6 @@ pub async fn main(
     for (idx, q) in quorum.iter().enumerate() {
         // FIXME: we are initing the confirmation rule with genesis root, which is not correct. Fortunately the confirmed tip (which this root is affecting) is not used in the conf rule for now (all relevant checks are disabled).
         conf_rule_states.push(rule::ConfirmationRuleState::new(*q, data::HEADER_GENESIS_ROOT.to_string(), 0));
-        println!("LEDGER t={} {:?}", 0, conf_rule_states[idx]);
     }
 
     // run confirmation rules
