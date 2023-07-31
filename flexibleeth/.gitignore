@@ -1,3 +1,5 @@
 target/
 cache.rocksdb/
 *.swp
+my.sh
+test.db
