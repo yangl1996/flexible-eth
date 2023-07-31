@@ -49,8 +49,8 @@ impl ConfirmationState {
     }
 
     pub fn register_first_block_of_epoch(&mut self, epoch: usize, ebb_root: data::Root, finalized_slot: usize, committees: &[data::CommitteeAssignment]) {
-        // remove confirmation targets that are more 2 or more epoches old, since we will not
-        //receive any more votes
+        // remove confirmation targets that are 2 or more epoches old, since they will not
+        // receive any more votes
         self.confirmation_targets.retain(|s| s.epoch > epoch-2);
         let nc = TargetConfirmationState::new(epoch, ebb_root, finalized_slot, committees, self.quorum);
         self.confirmation_targets.push(nc);

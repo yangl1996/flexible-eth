@@ -75,3 +75,7 @@ cd flexible-eth/flexibleeth
 ## Output
 
 After running the proof-of-concept implementation of the confirmation rule for Ethereum (see `run-example.sh` script), the output is found in `output-example-...`.
+
+## References
+
+- [Database schema](https://github.com/yangl1996/flexible-eth/blob/main/flexibleeth/docs/README.md)
