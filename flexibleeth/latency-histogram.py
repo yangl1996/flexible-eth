@@ -14,6 +14,8 @@ confirmed_tip = None
 data = []
 min_d = None
 max_d = None
+if args.n >= max_d-min_d:
+    args.n = max_d-min_d
 bins = [0.0 for i in range(args.n)]
 
 for line in sys.stdin:
