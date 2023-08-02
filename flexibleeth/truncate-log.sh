@@ -26,5 +26,5 @@ truncate $DATADIR/q98.txt > $OUTDIR/q98.txt
 truncate $DATADIR/q99.txt > $OUTDIR/q99.txt
 truncate $DATADIR/finalized.txt > $OUTDIR/finalized.txt
 MINSLOT=`expr $MINSLOT / 32`
-MAXSLOT=`expr $MINSLOT / 32`
+MAXSLOT=`expr $MAXSLOT / 32`
 truncate $DATADIR/participation.txt > $OUTDIR/participation.txt
