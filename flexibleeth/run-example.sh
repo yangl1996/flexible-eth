@@ -1,6 +1,6 @@
 #! /bin/bash -ve
 
-if [ $# -lt 2 ]; then
+if [ $# -lt 3 ]; then
 	echo "Usage: ./run-example.sh <DBPATH> <MINSLOT> <MAXSLOT>"
     exit 1
 fi
