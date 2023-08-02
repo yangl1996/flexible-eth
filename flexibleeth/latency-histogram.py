@@ -38,5 +38,11 @@ for d in data:
     idx = d-min_d
     bins[idx] += 1/len(data)/width
 
+for v in range(min_d):
+    print("({}, {}, {})".format(v, v+width, 0.0))
+
 for idx in range(n_bins):
-    print("({}, {}, {})".format(min_d+idx*width, min_d+idx*width+width, bins[idx]))
+    val = 0.0
+    for i in range(0, idx+1):
+        val += bins[i]
+    print("({}, {}, {})".format(min_d+idx*width, min_d+idx*width+width, val))
