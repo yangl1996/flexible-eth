@@ -7,7 +7,7 @@ import math
 #argParser.add_argument("-n", help="number of bins", type=int, default=50)
 #args = argParser.parse_args()
 
-e = re.compile(r"t=([0-9]+) tip=([0-9]+),")
+e = re.compile(r"\(([0-9]+), ([0-9]+)\)")
 
 confirmed_tip = None
 
@@ -39,4 +39,4 @@ for d in data:
     bins[idx] += 1/len(data)/width
 
 for idx in range(n_bins):
-    print(min_d+idx*width, min_d+idx*width+width, bins[idx])
+    print("({}, {}, {})".format(min_d+idx*width, min_d+idx*width+width, bins[idx]))
