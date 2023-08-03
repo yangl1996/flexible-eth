@@ -78,4 +78,4 @@ After running the proof-of-concept implementation of the confirmation rule for E
 
 ## References
 
-- [Database schema](https://github.com/yangl1996/flexible-eth/blob/main/flexibleeth/docs/README.md)
+- [Database schema](flexibleeth/docs/README.md)
