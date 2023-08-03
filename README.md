@@ -1,4 +1,4 @@
-# Optimal High-Safety Flexible Consensus (Confirmation Rule for Ethereum)
+# Optimal Flexible Consensus (Confirmation Rule for Ethereum)
 
 To reproduce the experiments with our proof-of-concept implementation of the flexible confirmation rule for Ethereum (derived from our optimal high-safety flexible consensus construction):
 1. Setup and run an Ethereum full node (see instructions below, requires ~50 hours of time and ~4TB of NVMe SSD storage)
