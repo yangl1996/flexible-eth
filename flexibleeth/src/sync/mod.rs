@@ -5,7 +5,7 @@ use rocksdb::{DB, Options};
 
 mod api;
 use crate::data;
-use crate::utils::{self, slot_to_epoch, is_epoch_boundary_slot};
+use crate::utils::{self, is_epoch_boundary_slot};
 
 fn ratelimiter_wait(ratelimiter: &mut Ratelimiter) {
     while let Err(sleep) = ratelimiter.try_wait() {

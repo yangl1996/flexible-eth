@@ -5,23 +5,6 @@ mod rule;
 use crate::data;
 use crate::utils;
 
-pub  fn get_first_block(
-    db: &DB,
-    epoch: usize,
-) -> Result<Option<(data::Root, usize)>, Box<dyn std::error::Error>> {
-    for s in utils::epoch_to_slot(epoch)..utils::epoch_to_slot(epoch+1) {
-        match &db.get(&format!("block_{}", s))? {
-            Some(serialized_blkroot) => {
-                return Ok(Some((bincode::deserialize::<data::Root>(serialized_blkroot)?, s)));
-            }
-            None => {
-                continue;
-            }
-        };
-    }
-    return Ok(None);
-}
-
 pub async fn main(
     db_path: String,
     quorum: Vec<f64>,
@@ -67,7 +50,7 @@ pub async fn main(
 
     // setup confirmation rules
     let mut conf_rule_states = Vec::new();
-    for (idx, q) in quorum.iter().enumerate() {
+    for (_, q) in quorum.iter().enumerate() {
         conf_rule_states.push(rule::ConfirmationState::new(*q));
     }
 
