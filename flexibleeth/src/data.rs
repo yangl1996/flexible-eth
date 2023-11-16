@@ -1,7 +1,5 @@
-// use ruint::{uint, Uint};
 use serde::{Deserialize, Serialize};
 
-// pub type Root = Uint<256, 4>;
 pub type Root = String;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -10,8 +8,6 @@ pub struct IdentifiedData<T> {
     pub data: T,
 }
 
-// pub const HEADER_GENESIS_ROOT: Root =
-// uint!(0x4d611d5b93fdab69013a7f0a2f961caca0c853f87cfe9595fe50038163079360_U256);
 pub const HEADER_GENESIS_ROOT: &str =
     "0x4d611d5b93fdab69013a7f0a2f961caca0c853f87cfe9595fe50038163079360";
 
