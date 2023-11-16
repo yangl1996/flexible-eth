@@ -80,15 +80,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             _ => log::LevelFilter::Trace,
         })
         .format_module_path(true)
-        // .format_target(true)
         .format_timestamp_millis()
         .init();
-
-    //log::error!("Testing logging: ERROR-type message");
-    //log::warn!("Testing logging: WARN-type message");
-    //log::info!("Testing logging: INFO-type message");
-    //log::debug!("Testing logging: DEBUG-type message");
-    //log::trace!("Testing logging: TRACE-type message");
 
     match cli.command {
         Commands::Sync {

@@ -1,4 +1,3 @@
-// use ruint::{uint, Uint};
 use crate::data::{self};
 use serde::{Deserialize, Deserializer, Serialize};
 use serde_aux::prelude::*;
@@ -311,7 +310,6 @@ pub async fn get_blockroot_by_slot(
         Ok(resp) => Ok(Some(resp.data.root)),
         Err(_) => {
             let _err = serde_json::from_str::<ResponseError>(&json_string)?;
-            // Err(Box::new(err)) // TODO: handle error properly: if the canonical chain doesn't have a block for a certain slot, then Prysm returns an error code
             Ok(None)
         }
     }
@@ -344,7 +342,6 @@ pub async fn get_block_by_blockroot(
         Ok(resp) => Ok(Some(resp.data.message.into())),
         Err(_) => {
             let _err = serde_json::from_str::<ResponseError>(&json_string)?;
-            // Err(Box::new(err)) // TODO: handle error properly: if the canonical chain doesn't have a block for a certain slot, then Prysm returns code 500
             Ok(None)
         }
     }
@@ -425,37 +422,6 @@ pub async fn get_state_finality_checkpoints_by_slot(
         }
     }
 }
-
-// #[allow(dead_code)]
-// pub async fn get_state_validators_by_slot(
-//     client: &mut reqwest::Client,
-//     rpc_url: &str,
-//     slot: &usize,
-// ) -> Result<Vec<data::ValidatorAssignment>, Box<dyn std::error::Error>> {
-//     #[derive(Debug, Clone, Deserialize)]
-//     struct GetStateValidatorsResponse {
-//         data: Vec<ApiValidatorAssignment>,
-//     }
-
-//     let json_string = client
-//         .get(format!(
-//             "{}/eth/v1/beacon/states/{}/validators",
-//             rpc_url, slot
-//         ))
-//         .header(reqwest::header::ACCEPT, "application/json")
-//         .send()
-//         .await?
-//         .text()
-//         .await?;
-
-//     match serde_json::from_str::<GetStateValidatorsResponse>(&json_string) {
-//         Ok(resp) => Ok(resp.data.into_iter().map(Into::into).collect()),
-//         Err(_) => {
-//             let err = serde_json::from_str::<ResponseError>(&json_string)?;
-//             Err(Box::new(err))
-//         }
-//     }
-// }
 
 pub async fn get_state_committees_by_slot(
     client: &mut reqwest::Client,

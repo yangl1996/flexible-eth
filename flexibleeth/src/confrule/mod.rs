@@ -79,7 +79,6 @@ pub async fn main(
                 )?;
 
             // load checkpoint information of what is the confirmation target in question
-            // TODO: check if the following assumption is correct---the checkpoint loaded here is the same as the one from the EBB for epoch e-1
             let (_cp_previous_justified, _cp_current_justified, cp_finalized) =
                 bincode::deserialize::<(data::Checkpoint, data::Checkpoint, data::Checkpoint)>(
                     &db.get(&format!(
@@ -100,13 +99,6 @@ pub async fn main(
                 .expect("Block for cp_finalized_blk not found"),
                 )?;
             log::info!("Registering blkroot {} slot {} as confirmation target for epoch {}", cp_finalized_blkroot, cp_finalized_blk.slot, epoch);
-            // FIXME: disabling the check
-            /*
-               let chain_tip_new = bincode::deserialize::<Vec<data::Root>>(
-               &db.get(&format!("chain_{}", cp_finalized_blkroot))?
-               .expect("Chain of block-roots for cp_finalized_blkroot not found"),
-               )?;
-             */
 
             let ebb_root = bincode::deserialize::<data::Root>(
                 &db.get(&format!("ebb_{}_root", epoch))?
